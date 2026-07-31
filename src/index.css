@@ -1,111 +1,115 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import 'tailwindcss';
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+/* ---------------------------------------------------------------------------
+   Tokens de diseño — EsteticaApp ("Spa moderno": sage + sand + clay)
+   Los hex salen tal cual de paleta.md. No aproximar ni derivar tonos nuevos.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Sage (verde salvia) — primario: botones, nav activa, textos */
+  --color-sage-50: #f3f7f0;
+  --color-sage-100: #e8f0e2;
+  --color-sage-200: #d9e9cf;
+  --color-sage-300: #b6ceb4;
+  --color-sage-400: #a5bb9f;
+  --color-sage-500: #96a78d;
+  --color-sage-600: #7e9075;
+  --color-sage-700: #65745d;
+  --color-sage-800: #4f5a49;
+  --color-sage-900: #3d463a;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Sand (arena) — secundario: fondos, superficies, bordes */
+  --color-sand-50: #faf8f3;
+  --color-sand-100: #f6f4ee;
+  --color-sand-200: #ece7d9;
+  --color-sand-300: #ddd4be;
+  --color-sand-400: #c9bb9c;
+  --color-sand-500: #b5a37e;
+  --color-sand-600: #9c8765;
+  --color-sand-700: #7d6c53;
+  --color-sand-800: #655746;
+  --color-sand-900: #54493c;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  /* Clay (terracota) — acento: errores y acciones destructivas.
+     clay-100/700 no están en paleta.md: los tomo del bloque de error del
+     diseño (fondo #f9ece5, texto #8f5233) para no hardcodear hex sueltos. */
+  --color-clay-100: #f9ece5;
+  --color-clay-400: #c98b6b;
+  --color-clay-500: #b97350;
+  --color-clay-700: #8f5233;
+
+  --font-sans: Inter, system-ui, -apple-system, sans-serif;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  /* Radio de los controles (inputs, botones, chips) en todo el diseño: 12px. */
+  --radius-control: 0.75rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-sand-100);
+    color: var(--color-sage-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Los controles nativos no heredan la tipografía por defecto */
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--color-sage-400);
+    outline-offset: 1px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-sand-300);
+    border-radius: 8px;
+    border: 3px solid var(--color-sand-100);
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+/* Animaciones del diseño (omFade / omSk / omSpin) */
+@keyframes om-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+@keyframes om-skeleton {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+
+@utility animate-om-fade {
+  animation: om-fade 0.4s ease both;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+@utility animate-om-skeleton {
+  animation: om-skeleton 1.2s ease-in-out infinite;
 }
