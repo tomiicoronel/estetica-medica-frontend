@@ -5,11 +5,20 @@ export function formatearMonto(monto: number): string {
   return `$ ${Math.round(monto || 0).toLocaleString('es-AR')}`
 }
 
-/** "2026-06-01T10:30:00" → "10:30" */
+/**
+ * "2026-06-01T14:30:00" → "14:30".
+ *
+ * `hour12: false` explícito: es-AR formatea en 12 horas y devolvía
+ * "02:30 p. m.", que además choca con el "hs" que le sigue en pantalla.
+ */
 export function formatearHora(iso: string): string {
   const fecha = new Date(iso)
   if (Number.isNaN(fecha.getTime())) return '—'
-  return fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  return fecha.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 /** "jueves 5 de junio" */

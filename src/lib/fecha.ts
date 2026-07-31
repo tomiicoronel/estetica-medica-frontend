@@ -44,6 +44,13 @@ export function edad(fechaNacimiento?: string): string {
   return `${anios} años`
 }
 
+/** `HH:mm` con horas 00-23 y minutos 00-59. */
+export function esHoraValida(hora: string): boolean {
+  const partes = /^(\d{2}):(\d{2})$/.exec(hora)
+  if (!partes) return false
+  return Number(partes[1]) <= 23 && Number(partes[2]) <= 59
+}
+
 export function iniciales(nombre: string, apellido: string): string {
   const letras = `${nombre[0] ?? ''}${apellido[0] ?? ''}`.trim()
   return letras === '' ? '—' : letras.toUpperCase()

@@ -15,6 +15,8 @@ import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
 import { PacienteDetallePage } from './pages/pacientes/PacienteDetallePage'
 import { PacientesPage } from './pages/pacientes/PacientesPage'
+import { ServiciosPage } from './pages/servicios/ServiciosPage'
+import { TurnosPage } from './pages/turnos/TurnosPage'
 import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
 /** La raíz manda a cada rol a su pantalla de inicio. */
@@ -43,8 +45,8 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pacientes" element={<PacientesPage />} />
             <Route path="/pacientes/:id" element={<PacienteDetallePage />} />
-            <Route path="/turnos" element={<Pendiente titulo="Turnos" />} />
-            <Route path="/servicios" element={<Pendiente titulo="Servicios" />} />
+            <Route path="/turnos" element={<TurnosPage />} />
+            <Route path="/servicios" element={<ServiciosPage />} />
             <Route path="/pagos" element={<Pendiente titulo="Pagos" />} />
             <Route path="/bloqueos" element={<Pendiente titulo="Bloqueos de agenda" />} />
             <Route path="/perfil" element={<Pendiente titulo="Perfil" />} />

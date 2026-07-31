@@ -10,6 +10,7 @@ import { edad, formatearFecha, iniciales } from '../../lib/fecha'
 import { cargado, oGuion, unir } from '../../lib/formato'
 import type { PacienteResponse } from '../../types/api'
 import { PacienteFormModal } from './PacienteFormModal'
+import { TurnosDelPaciente } from './TurnosDelPaciente'
 
 /**
  * Pestañas de la ficha, tal cual el diseño. Cada una es una pantalla en sí
@@ -101,9 +102,17 @@ export function PacienteDetallePage() {
               ))}
             </div>
 
-            {tab === 'datos' ? (
-              <Datos paciente={paciente} />
-            ) : (
+            {tab === 'datos' && <Datos paciente={paciente} />}
+
+            {tab === 'turnos' && (
+              <TurnosDelPaciente
+                pacienteId={paciente.id}
+                nombrePaciente={`${paciente.nombre} ${paciente.apellido}`}
+                activo={paciente.activo}
+              />
+            )}
+
+            {tab !== 'datos' && tab !== 'turnos' && (
               <TabPendiente label={TABS.find((t) => t.clave === tab)?.label ?? ''} />
             )}
           </>
