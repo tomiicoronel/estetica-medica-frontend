@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/useAuth'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { PasswordInput } from '../../components/ui/PasswordInput'
 import { AuthLayout } from '../../layouts/AuthLayout'
 
 /** Ruta a la que iba el usuario antes de que el guard lo mandara a /login. */
@@ -64,9 +65,8 @@ export function LoginPage() {
             // En un 400 de validación el backend indica el campo; lo mostramos ahí.
             error={error instanceof ApiError ? error.campo('email') : undefined}
           />
-          <Input
+          <PasswordInput
             label="Contraseña"
-            type="password"
             autoComplete="current-password"
             placeholder="••••••••"
             required

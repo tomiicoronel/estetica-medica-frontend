@@ -45,13 +45,23 @@ function esErrorResponse(data: unknown): data is ErrorResponse {
 }
 
 /**
+ * En /api/auth/** un 401 habla de las credenciales que se acaban de tipear, no
+ * del token: en login son email/contraseña incorrectos y en cambiar-password es
+ * la contraseña actual incorrecta (AuthController documenta ese 401). Cerrar la
+ * sesión ahí expulsaría al usuario por un simple error de tipeo.
+ */
+function el401EsDeCredenciales(path: string): boolean {
+  return path.startsWith('/api/auth/')
+}
+
+/**
  * Traduce una respuesta no-OK al ApiError correspondiente y aplica los efectos
  * globales que pide GUIA_FRONTEND.md (401 → cerrar sesión).
  */
-async function construirError(response: Response): Promise<ApiError> {
+async function construirError(response: Response, path: string): Promise<ApiError> {
   const data: unknown = await response.json().catch(() => undefined)
 
-  if (response.status === 401) {
+  if (response.status === 401 && !el401EsDeCredenciales(path)) {
     // Token ausente, inválido o vencido. El guard de rutas manda a /login.
     clearSession()
     return new ApiError(401, 'Tu sesión expiró. Ingresá de nuevo.')
@@ -87,7 +97,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     },
   })
 
-  if (!response.ok) throw await construirError(response)
+  if (!response.ok) throw await construirError(response, path)
   if (response.status === 204) return undefined as T
 
   return (await response.json()) as T
@@ -114,7 +124,7 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
     body: form,
   })
 
-  if (!response.ok) throw await construirError(response)
+  if (!response.ok) throw await construirError(response, path)
   return (await response.json()) as T
 }
 
@@ -127,7 +137,7 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 export async function apiBlob(path: string): Promise<Blob> {
   const response = await fetch(`${API_URL}${path}`, { headers: authHeader() })
 
-  if (!response.ok) throw await construirError(response)
+  if (!response.ok) throw await construirError(response, path)
   return await response.blob()
 }
 

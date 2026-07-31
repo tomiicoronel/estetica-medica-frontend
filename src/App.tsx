@@ -9,6 +9,7 @@ import { inicioSegunRol } from './auth/rutas'
 import { useAuth } from './auth/useAuth'
 import { Pendiente } from './components/Pendiente'
 import { LoginPage } from './pages/login/LoginPage'
+import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
 /** La raíz manda a cada rol a su pantalla de inicio. */
 function Inicio() {
@@ -26,7 +27,7 @@ export default function App() {
       </Route>
 
       <Route element={<RequireCambioPassword />}>
-        <Route path="/cambiar-password" element={<Pendiente titulo="Cambiar contraseña" />} />
+        <Route path="/cambiar-password" element={<CambiarPasswordPage />} />
       </Route>
 
       <Route element={<RequireAuth />}>
