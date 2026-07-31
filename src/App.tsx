@@ -13,6 +13,7 @@ import { AppLayout } from './layouts/AppLayout'
 import { CuentasPage } from './pages/admin/CuentasPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
+import { PacientesPage } from './pages/pacientes/PacientesPage'
 import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
 /** La raíz manda a cada rol a su pantalla de inicio. */
@@ -39,7 +40,7 @@ export default function App() {
         <Route element={<RequireRol rol="PROFESIONAL" />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/pacientes" element={<Pendiente titulo="Pacientes" />} />
+            <Route path="/pacientes" element={<PacientesPage />} />
             <Route path="/pacientes/:id" element={<Pendiente titulo="Detalle de paciente" />} />
             <Route path="/turnos" element={<Pendiente titulo="Turnos" />} />
             <Route path="/servicios" element={<Pendiente titulo="Servicios" />} />
