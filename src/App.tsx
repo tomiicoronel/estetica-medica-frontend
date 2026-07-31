@@ -9,7 +9,9 @@ import { inicioSegunRol } from './auth/rutas'
 import { useAuth } from './auth/useAuth'
 import { Pendiente } from './components/Pendiente'
 import { AdminLayout } from './layouts/AdminLayout'
+import { AppLayout } from './layouts/AppLayout'
 import { CuentasPage } from './pages/admin/CuentasPage'
+import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
 import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
@@ -35,14 +37,16 @@ export default function App() {
       <Route element={<RequireAuth />}>
         {/* Espacio de la profesional */}
         <Route element={<RequireRol rol="PROFESIONAL" />}>
-          <Route path="/dashboard" element={<Pendiente titulo="Dashboard" />} />
-          <Route path="/pacientes" element={<Pendiente titulo="Pacientes" />} />
-          <Route path="/pacientes/:id" element={<Pendiente titulo="Detalle de paciente" />} />
-          <Route path="/turnos" element={<Pendiente titulo="Turnos" />} />
-          <Route path="/servicios" element={<Pendiente titulo="Servicios" />} />
-          <Route path="/pagos" element={<Pendiente titulo="Pagos" />} />
-          <Route path="/bloqueos" element={<Pendiente titulo="Bloqueos de agenda" />} />
-          <Route path="/perfil" element={<Pendiente titulo="Perfil" />} />
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/pacientes" element={<Pendiente titulo="Pacientes" />} />
+            <Route path="/pacientes/:id" element={<Pendiente titulo="Detalle de paciente" />} />
+            <Route path="/turnos" element={<Pendiente titulo="Turnos" />} />
+            <Route path="/servicios" element={<Pendiente titulo="Servicios" />} />
+            <Route path="/pagos" element={<Pendiente titulo="Pagos" />} />
+            <Route path="/bloqueos" element={<Pendiente titulo="Bloqueos de agenda" />} />
+            <Route path="/perfil" element={<Pendiente titulo="Perfil" />} />
+          </Route>
         </Route>
 
         {/* Panel de administración */}

@@ -1,0 +1,38 @@
+import type { EstadoTurno, MetodoPago } from '../types/api'
+
+/** Formato del diseño: "$ 50.000", sin decimales. */
+export function formatearMonto(monto: number): string {
+  return `$ ${Math.round(monto || 0).toLocaleString('es-AR')}`
+}
+
+/** "2026-06-01T10:30:00" → "10:30" */
+export function formatearHora(iso: string): string {
+  const fecha = new Date(iso)
+  if (Number.isNaN(fecha.getTime())) return '—'
+  return fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+}
+
+/** "jueves 5 de junio" */
+export function formatearFechaLarga(fecha: Date): string {
+  return fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+/** Los `?fecha=` del backend van en yyyy-MM-dd, en hora local. */
+export function aFechaISO(fecha: Date): string {
+  const local = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+export const ETIQUETA_ESTADO: Record<EstadoTurno, string> = {
+  PENDIENTE: 'Pendiente',
+  CONFIRMADO: 'Confirmado',
+  REALIZADO: 'Realizado',
+  CANCELADO: 'Cancelado',
+}
+
+export const ETIQUETA_METODO: Record<MetodoPago, string> = {
+  EFECTIVO: 'Efectivo',
+  TRANSFERENCIA: 'Transferencia',
+  MERCADO_PAGO: 'Mercado Pago',
+  TRUEQUE: 'Trueque',
+}
