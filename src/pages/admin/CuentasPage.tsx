@@ -1,14 +1,29 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listarProfesionales } from '../../api/endpoints/admin'
+import { useAuth } from '../../auth/useAuth'
 import { PageHeader } from '../../components/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { ErrorDeCarga, Skeleton, SinResultados } from '../../components/ui/EstadoCarga'
+import { Toast } from '../../components/ui/Toast'
 import { formatearFecha, iniciales } from '../../lib/fecha'
 import type { ProfesionalResponse } from '../../types/api'
+import { CuentaFormModal } from './CuentaFormModal'
+import { EliminarCuentaModal } from './EliminarCuentaModal'
+import { ResetearClaveModal } from './ResetearClaveModal'
+
+type Modal =
+  | { tipo: 'crear' }
+  | { tipo: 'editar'; cuenta: ProfesionalResponse }
+  | { tipo: 'clave'; cuenta: ProfesionalResponse }
+  | { tipo: 'eliminar'; cuenta: ProfesionalResponse }
 
 export function CuentasPage() {
   const [busqueda, setBusqueda] = useState('')
+  const [modal, setModal] = useState<Modal | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  const { perfil } = useAuth()
 
   const { data: cuentas, isPending, error } = useQuery({
     queryKey: ['admin', 'profesionales'],
@@ -30,12 +45,27 @@ export function CuentasPage() {
     )
   }, [cuentas, busqueda])
 
+  function cerrarConAviso(mensaje: string) {
+    setModal(null)
+    setAviso(mensaje)
+  }
+
+  const acciones: Acciones = {
+    editar: (cuenta) => setModal({ tipo: 'editar', cuenta }),
+    clave: (cuenta) => setModal({ tipo: 'clave', cuenta }),
+    eliminar: (cuenta) => setModal({ tipo: 'eliminar', cuenta }),
+    // AdminService.findAll() no filtra por rol: la propia cuenta de admin
+    // aparece en el listado. Borrarla dejaría al sistema sin quien cree
+    // profesionales, y editar el email propio es pisar la sesión en curso.
+    esPropia: (cuenta) => cuenta.id === perfil?.id,
+  }
+
   return (
     <>
       <PageHeader
         titulo="Cuentas"
         subtitulo="Altas, edición y contraseñas de las profesionales."
-        accion={<Button>Nueva cuenta</Button>}
+        accion={<Button onClick={() => setModal({ tipo: 'crear' })}>Nueva cuenta</Button>}
       />
 
       <div className="flex w-full max-w-[1420px] flex-col gap-4 px-4 pb-25 pt-4 app:gap-[22px] app:px-[34px] app:pb-15 app:pt-7">
@@ -61,13 +91,55 @@ export function CuentasPage() {
 
         {cuentas && (
           <>
-            <TablaCuentas cuentas={filtradas} hayBusqueda={busqueda.trim() !== ''} />
-            <TarjetasCuentas cuentas={filtradas} hayBusqueda={busqueda.trim() !== ''} />
+            <TablaCuentas
+              cuentas={filtradas}
+              hayBusqueda={busqueda.trim() !== ''}
+              acciones={acciones}
+            />
+            <TarjetasCuentas
+              cuentas={filtradas}
+              hayBusqueda={busqueda.trim() !== ''}
+              acciones={acciones}
+            />
           </>
         )}
       </div>
+
+      {modal?.tipo === 'crear' && (
+        <CuentaFormModal onCerrar={() => setModal(null)} onListo={cerrarConAviso} />
+      )}
+      {modal?.tipo === 'editar' && (
+        <CuentaFormModal
+          cuenta={modal.cuenta}
+          onCerrar={() => setModal(null)}
+          onListo={cerrarConAviso}
+        />
+      )}
+      {modal?.tipo === 'clave' && (
+        <ResetearClaveModal
+          cuenta={modal.cuenta}
+          onCerrar={() => setModal(null)}
+          onListo={cerrarConAviso}
+        />
+      )}
+      {modal?.tipo === 'eliminar' && (
+        <EliminarCuentaModal
+          cuenta={modal.cuenta}
+          onCerrar={() => setModal(null)}
+          onListo={cerrarConAviso}
+        />
+      )}
+
+      {aviso && <Toast mensaje={aviso} onCerrar={() => setAviso(null)} />}
     </>
   )
+}
+
+interface Acciones {
+  editar: (cuenta: ProfesionalResponse) => void
+  clave: (cuenta: ProfesionalResponse) => void
+  eliminar: (cuenta: ProfesionalResponse) => void
+  esPropia: (cuenta: ProfesionalResponse) => boolean
 }
 
 const VACIO = {
@@ -85,9 +157,11 @@ const VACIO = {
 function TablaCuentas({
   cuentas,
   hayBusqueda,
+  acciones,
 }: {
   cuentas: ProfesionalResponse[]
   hayBusqueda: boolean
+  acciones: Acciones
 }) {
   const vacio = hayBusqueda ? VACIO.conBusqueda : VACIO.sinBusqueda
 
@@ -112,8 +186,16 @@ function TablaCuentas({
                 {iniciales(cuenta.nombre, cuenta.apellido)}
               </span>
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium">
-                  {cuenta.nombre} {cuenta.apellido}
+                {/* El chip va fuera del truncate: adentro se corta con el nombre. */}
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium">
+                    {cuenta.nombre} {cuenta.apellido}
+                  </span>
+                  {acciones.esPropia(cuenta) && (
+                    <span className="flex-none rounded-full bg-sage-100 px-2 py-0.5 text-[10.5px] font-semibold text-sage-700">
+                      Vos
+                    </span>
+                  )}
                 </span>
                 <span className="truncate text-[11.5px] text-sage-500">
                   {cuenta.especialidad ?? 'Sin especialidad'}
@@ -125,7 +207,7 @@ function TablaCuentas({
             <span className="self-center text-[13px] text-sage-700">
               {formatearFecha(cuenta.creadoEn)}
             </span>
-            <AccionesCuenta />
+            <AccionesCuenta cuenta={cuenta} acciones={acciones} />
           </div>
         ))}
 
@@ -139,9 +221,11 @@ function TablaCuentas({
 function TarjetasCuentas({
   cuentas,
   hayBusqueda,
+  acciones,
 }: {
   cuentas: ProfesionalResponse[]
   hayBusqueda: boolean
+  acciones: Acciones
 }) {
   const vacio = hayBusqueda ? VACIO.conBusqueda : VACIO.sinBusqueda
 
@@ -157,8 +241,15 @@ function TarjetasCuentas({
               {iniciales(cuenta.nombre, cuenta.apellido)}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="truncate text-[15px] font-semibold">
-                {cuenta.nombre} {cuenta.apellido}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate text-[15px] font-semibold">
+                  {cuenta.nombre} {cuenta.apellido}
+                </span>
+                {acciones.esPropia(cuenta) && (
+                  <span className="flex-none rounded-full bg-sage-100 px-2 py-0.5 text-[10.5px] font-semibold text-sage-700">
+                    Vos
+                  </span>
+                )}
               </span>
               <span className="truncate text-[12.5px] text-sand-700">{cuenta.email}</span>
             </span>
@@ -170,7 +261,7 @@ function TarjetasCuentas({
             <span>·</span>
             <span>Alta {formatearFecha(cuenta.creadoEn)}</span>
           </div>
-          <AccionesCuenta enTarjeta />
+          <AccionesCuenta cuenta={cuenta} acciones={acciones} enTarjeta />
         </div>
       ))}
 
@@ -183,29 +274,47 @@ function TarjetasCuentas({
   )
 }
 
-/**
- * Acciones por cuenta. Todavía sin conectar: editar, resetear contraseña y
- * eliminar entran en el próximo paso, cada una con su confirmación.
- */
-function AccionesCuenta({ enTarjeta = false }: { enTarjeta?: boolean }) {
+function AccionesCuenta({
+  cuenta,
+  acciones,
+  enTarjeta = false,
+}: {
+  cuenta: ProfesionalResponse
+  acciones: Acciones
+  enTarjeta?: boolean
+}) {
+  const propia = acciones.esPropia(cuenta)
+
   const base =
-    'rounded-[9px] border border-sand-300 bg-white font-semibold text-sage-700 transition-colors hover:bg-sage-50 disabled:cursor-not-allowed disabled:opacity-50'
+    'rounded-[9px] border border-sand-300 bg-white font-semibold text-sage-700 transition-colors hover:bg-sage-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white'
+  const tamano = enTarjeta ? 'min-h-11 px-3 text-[13px]' : 'px-[11px] py-1.5 text-[12.5px]'
 
   return (
     <div className={enTarjeta ? 'grid grid-cols-3 gap-2' : 'flex items-center gap-[7px] self-center'}>
-      <button type="button" disabled className={`${base} ${enTarjeta ? 'min-h-11 px-3 text-[13px]' : 'px-[11px] py-1.5 text-[12.5px]'}`}>
+      <button
+        type="button"
+        onClick={() => acciones.editar(cuenta)}
+        disabled={propia}
+        title={propia ? 'Editá tus datos desde tu perfil' : undefined}
+        className={`${base} ${tamano}`}
+      >
         Editar
       </button>
-      <button type="button" disabled className={`${base} ${enTarjeta ? 'min-h-11 px-3 text-[13px]' : 'px-[11px] py-1.5 text-[12.5px]'}`}>
+      <button
+        type="button"
+        onClick={() => acciones.clave(cuenta)}
+        disabled={propia}
+        title={propia ? 'Cambiá tu contraseña desde tu perfil' : undefined}
+        className={`${base} ${tamano}`}
+      >
         Clave
       </button>
       <button
         type="button"
-        disabled
-        title="Eliminar cuenta"
-        className={`rounded-[9px] border border-clay-400 bg-white font-semibold text-clay-500 transition-colors hover:bg-clay-100 disabled:cursor-not-allowed disabled:opacity-50 ${
-          enTarjeta ? 'min-h-11 px-3 text-[13px]' : 'px-[11px] py-1.5 text-[12.5px]'
-        }`}
+        onClick={() => acciones.eliminar(cuenta)}
+        disabled={propia}
+        title={propia ? 'No podés eliminar tu propia cuenta' : 'Eliminar cuenta'}
+        className={`rounded-[9px] border border-clay-400 bg-white font-semibold text-clay-500 transition-colors hover:bg-clay-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white ${tamano}`}
       >
         {enTarjeta ? 'Eliminar' : '✕'}
       </button>
