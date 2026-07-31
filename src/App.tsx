@@ -8,6 +8,8 @@ import {
 import { inicioSegunRol } from './auth/rutas'
 import { useAuth } from './auth/useAuth'
 import { Pendiente } from './components/Pendiente'
+import { AdminLayout } from './layouts/AdminLayout'
+import { CuentasPage } from './pages/admin/CuentasPage'
 import { LoginPage } from './pages/login/LoginPage'
 import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
@@ -45,7 +47,9 @@ export default function App() {
 
         {/* Panel de administración */}
         <Route element={<RequireRol rol="ADMIN" />}>
-          <Route path="/admin/cuentas" element={<Pendiente titulo="Cuentas" />} />
+          <Route element={<AdminLayout />}>
+            <Route path="/admin/cuentas" element={<CuentasPage />} />
+          </Route>
         </Route>
       </Route>
 

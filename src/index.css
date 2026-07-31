@@ -39,6 +39,11 @@
 
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
 
+  /* El diseño cambia de sidebar a barra + bottom nav en 860px (`mob = vw < 860`).
+     No coincide con ningún breakpoint por defecto de Tailwind, así que va como
+     token propio: `app:` = desde 860px. */
+  --breakpoint-app: 860px;
+
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
   /* Radio de los controles (inputs, botones, chips) en todo el diseño: 12px. */
