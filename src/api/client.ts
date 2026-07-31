@@ -114,6 +114,21 @@ export const api = {
 }
 
 /**
+ * Endpoints que contestan texto plano en vez de JSON, como
+ * `PATCH /api/pacientes/{id}/estado` ("Paciente archivado correctamente").
+ * Pasarlos por `apiFetch` rompería al intentar parsear la respuesta.
+ */
+export async function apiTexto(path: string, options: RequestInit = {}): Promise<string> {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { ...authHeader(), ...(options.headers ?? {}) },
+  })
+
+  if (!response.ok) throw await construirError(response, path)
+  return await response.text()
+}
+
+/**
  * Subida multipart (fotos de evolución).
  * No se setea Content-Type a mano: el navegador tiene que poner el boundary.
  */

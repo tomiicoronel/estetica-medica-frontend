@@ -10,8 +10,17 @@ const FECHA_CORTA = new Intl.DateTimeFormat('es-AR', {
   year: 'numeric',
 })
 
+/**
+ * Sirve para `LocalDateTime` y para `LocalDate`.
+ *
+ * Un `LocalDate` suelto ("2001-08-06") lo parsea el navegador como medianoche
+ * UTC, que en Argentina (UTC-3) cae el día anterior: la fecha se mostraba
+ * corrida un día. Anclarlo al mediodía lo deja siempre en su fecha. Los
+ * `LocalDateTime` ya traen hora y se parsean como local, así que van tal cual.
+ */
 export function formatearFecha(iso: string): string {
-  const fecha = new Date(iso)
+  const conHora = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso
+  const fecha = new Date(conHora)
   return Number.isNaN(fecha.getTime()) ? '—' : FECHA_CORTA.format(fecha)
 }
 

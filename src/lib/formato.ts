@@ -23,6 +23,25 @@ export function aFechaISO(fecha: Date): string {
   return local.toISOString().slice(0, 10)
 }
 
+/**
+ * Un opcional que la profesional nunca cargó vuelve como `null`, no ausente:
+ * Jackson serializa la propiedad igual. Por eso `?? '—'` no alcanza para
+ * decidir si un campo tiene dato.
+ */
+export function cargado(valor: string | undefined | null): valor is string {
+  return typeof valor === 'string' && valor.trim() !== ''
+}
+
+export function oGuion(valor: string | undefined | null): string {
+  return cargado(valor) ? valor : '—'
+}
+
+/** Une con " · " las partes que sí tienen dato; si no queda ninguna, un guión. */
+export function unir(partes: (string | undefined | null)[]): string {
+  const cargadas = partes.filter(cargado)
+  return cargadas.length === 0 ? '—' : cargadas.join(' · ')
+}
+
 export const ETIQUETA_ESTADO: Record<EstadoTurno, string> = {
   PENDIENTE: 'Pendiente',
   CONFIRMADO: 'Confirmado',

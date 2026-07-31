@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { edad, iniciales } from '../../lib/fecha'
+import { oGuion } from '../../lib/formato'
 import type { PacienteResponse } from '../../types/api'
 import { PacienteFormModal } from './PacienteFormModal'
 
@@ -244,7 +245,7 @@ function TablaPacientes({
             <span className="text-[13.5px] text-sage-700">{paciente.dniCuit}</span>
             <span className="text-[13.5px] text-sage-700">{paciente.telefono}</span>
             <span className="truncate text-[13.5px] text-sage-700">
-              {paciente.obraSocial ?? '—'}
+              {oGuion(paciente.obraSocial)}
             </span>
             <BadgeEstado activo={paciente.activo} />
           </button>
@@ -335,7 +336,7 @@ function TarjetasPacientes({
             </span>
             <span className="text-[13px] text-sand-700">{paciente.telefono}</span>
             <span className="truncate text-[12.5px] text-sage-500">
-              {edad(paciente.fechaNacimiento)} · {paciente.obraSocial ?? '—'}
+              {edad(paciente.fechaNacimiento)} · {oGuion(paciente.obraSocial)}
             </span>
           </span>
           <BadgeEstado activo={paciente.activo} />

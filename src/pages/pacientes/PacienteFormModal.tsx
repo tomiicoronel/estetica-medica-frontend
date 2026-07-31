@@ -1,15 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../api/client'
-import { crearPaciente } from '../../api/endpoints/pacientes'
+import { actualizarPaciente, crearPaciente } from '../../api/endpoints/pacientes'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
-import type { PacienteRequest } from '../../types/api'
+import type { PacienteRequest, PacienteResponse } from '../../types/api'
 
 interface Props {
+  /** Undefined = alta; definido = edición de esa ficha. */
+  paciente?: PacienteResponse
   onCerrar: () => void
   onListo: (mensaje: string) => void
 }
@@ -21,29 +23,42 @@ function opcional(valor: string): string | undefined {
 }
 
 /**
- * Alta de paciente.
+ * Alta y edición de la ficha. Comparten formulario porque `PUT /api/pacientes/{id}`
+ * recibe el mismo `PacienteRequest` completo que el POST: mandar sólo los campos
+ * tocados borraría el resto.
  *
  * El diseño resuelve el contacto de emergencia con un solo campo, pero la API
  * lo guarda en tres columnas separadas (nombre, teléfono y parentesco); partirlo
  * a mano sería adivinar, así que van los tres campos.
  *
- * Las entidades de traslado existen en `PacienteRequest` y no están en este
- * formulario: el diseño las deja para la ficha del paciente, no para el alta.
+ * Las entidades de traslado existen en `PacienteRequest` y el diseño no las pone
+ * en ningún formulario; van acá para que la ficha no tenga datos que se puedan
+ * leer pero nunca cargar.
  */
-export function PacienteFormModal({ onCerrar, onListo }: Props) {
-  const [nombre, setNombre] = useState('')
-  const [apellido, setApellido] = useState('')
-  const [dniCuit, setDniCuit] = useState('')
-  const [fechaNacimiento, setFechaNacimiento] = useState('')
-  const [telefono, setTelefono] = useState('')
-  const [email, setEmail] = useState('')
-  const [profesion, setProfesion] = useState('')
-  const [obraSocial, setObraSocial] = useState('')
-  const [numeroObraSocial, setNumeroObraSocial] = useState('')
-  const [domicilio, setDomicilio] = useState('')
-  const [emergenciaNombre, setEmergenciaNombre] = useState('')
-  const [emergenciaTelefono, setEmergenciaTelefono] = useState('')
-  const [emergenciaParentesco, setEmergenciaParentesco] = useState('')
+export function PacienteFormModal({ paciente, onCerrar, onListo }: Props) {
+  const esEdicion = paciente !== undefined
+
+  const [nombre, setNombre] = useState(paciente?.nombre ?? '')
+  const [apellido, setApellido] = useState(paciente?.apellido ?? '')
+  const [dniCuit, setDniCuit] = useState(paciente?.dniCuit ?? '')
+  const [fechaNacimiento, setFechaNacimiento] = useState(paciente?.fechaNacimiento ?? '')
+  const [telefono, setTelefono] = useState(paciente?.telefono ?? '')
+  const [email, setEmail] = useState(paciente?.email ?? '')
+  const [profesion, setProfesion] = useState(paciente?.profesion ?? '')
+  const [obraSocial, setObraSocial] = useState(paciente?.obraSocial ?? '')
+  const [numeroObraSocial, setNumeroObraSocial] = useState(paciente?.numeroObraSocial ?? '')
+  const [domicilio, setDomicilio] = useState(paciente?.domicilio ?? '')
+  const [emergenciaNombre, setEmergenciaNombre] = useState(
+    paciente?.contactoEmergenciaNombre ?? '',
+  )
+  const [emergenciaTelefono, setEmergenciaTelefono] = useState(
+    paciente?.contactoEmergenciaTelefono ?? '',
+  )
+  const [emergenciaParentesco, setEmergenciaParentesco] = useState(
+    paciente?.contactoEmergenciaParentesco ?? '',
+  )
+  const [traslado1, setTraslado1] = useState(paciente?.entidadTraslado1 ?? '')
+  const [traslado2, setTraslado2] = useState(paciente?.entidadTraslado2 ?? '')
 
   const queryClient = useQueryClient()
 
@@ -63,12 +78,19 @@ export function PacienteFormModal({ onCerrar, onListo }: Props) {
         contactoEmergenciaNombre: opcional(emergenciaNombre),
         contactoEmergenciaTelefono: opcional(emergenciaTelefono),
         contactoEmergenciaParentesco: opcional(emergenciaParentesco),
+        entidadTraslado1: opcional(traslado1),
+        entidadTraslado2: opcional(traslado2),
       }
-      return crearPaciente(datos)
+
+      return esEdicion ? actualizarPaciente(paciente.id, datos) : crearPaciente(datos)
     },
-    onSuccess: async (paciente) => {
+    onSuccess: async (guardado) => {
       await queryClient.invalidateQueries({ queryKey: ['pacientes'] })
-      onListo(`${paciente.nombre} ${paciente.apellido} ya está en tu listado.`)
+      onListo(
+        esEdicion
+          ? 'Ficha actualizada.'
+          : `${guardado.nombre} ${guardado.apellido} ya está en tu listado.`,
+      )
     },
   })
 
@@ -83,8 +105,12 @@ export function PacienteFormModal({ onCerrar, onListo }: Props) {
 
   return (
     <Modal
-      titulo="Nuevo paciente"
-      subtitulo="Los campos con datos de contacto ayudan a identificarlo rápido."
+      titulo={esEdicion ? 'Editar ficha' : 'Nuevo paciente'}
+      subtitulo={
+        esEdicion
+          ? 'Los cambios no tocan turnos, pagos ni historia clínica.'
+          : 'Los campos con datos de contacto ayudan a identificarlo rápido.'
+      }
       onCerrar={onCerrar}
       pie={
         <>
@@ -92,7 +118,7 @@ export function PacienteFormModal({ onCerrar, onListo }: Props) {
             Cancelar
           </Button>
           <Button type="submit" form="form-paciente" cargando={mutacion.isPending}>
-            Guardar paciente
+            {esEdicion ? 'Guardar cambios' : 'Guardar paciente'}
           </Button>
         </>
       }
@@ -219,6 +245,28 @@ export function PacienteFormModal({ onCerrar, onListo }: Props) {
           value={emergenciaParentesco}
           onChange={(e) => setEmergenciaParentesco(e.target.value)}
           error={campo('contactoEmergenciaParentesco')}
+        />
+
+        <div className="app:col-span-2">
+          <span className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-sand-500">
+            Entidades de traslado
+          </span>
+        </div>
+        <Input
+          label="Primera entidad"
+          superficie="blanco"
+          placeholder="Opcional"
+          value={traslado1}
+          onChange={(e) => setTraslado1(e.target.value)}
+          error={campo('entidadTraslado1')}
+        />
+        <Input
+          label="Segunda entidad"
+          superficie="blanco"
+          placeholder="Opcional"
+          value={traslado2}
+          onChange={(e) => setTraslado2(e.target.value)}
+          error={campo('entidadTraslado2')}
         />
 
         {error && (

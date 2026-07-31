@@ -13,6 +13,7 @@ import { AppLayout } from './layouts/AppLayout'
 import { CuentasPage } from './pages/admin/CuentasPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
+import { PacienteDetallePage } from './pages/pacientes/PacienteDetallePage'
 import { PacientesPage } from './pages/pacientes/PacientesPage'
 import { CambiarPasswordPage } from './pages/password/CambiarPasswordPage'
 
@@ -41,7 +42,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/pacientes" element={<PacientesPage />} />
-            <Route path="/pacientes/:id" element={<Pendiente titulo="Detalle de paciente" />} />
+            <Route path="/pacientes/:id" element={<PacienteDetallePage />} />
             <Route path="/turnos" element={<Pendiente titulo="Turnos" />} />
             <Route path="/servicios" element={<Pendiente titulo="Servicios" />} />
             <Route path="/pagos" element={<Pendiente titulo="Pagos" />} />
