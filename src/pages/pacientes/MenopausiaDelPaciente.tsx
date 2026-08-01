@@ -242,6 +242,14 @@ function Grafico({ evaluaciones }: { evaluaciones: EvaluacionMenopausiaResponse[
 
   const puntos = cronologicas.map((ev, i) => `${x(i)},${y(ev.puntajeTotal)}`).join(' ')
 
+  // Cuartos exactos de la escala: quedan parejos y anclan los dos extremos, 0
+  // y el máximo posible. Los cortes de severidad no sirven como marcas porque
+  // 0-4-8 quedan amontonados abajo y las etiquetas se pisarían.
+  const marcas = [0, 11, 22, 33, MAXIMO]
+
+  /** Altura de un puntaje como porcentaje del alto renderizado del gráfico. */
+  const porcentaje = (puntaje: number) => (y(puntaje) / ALTO) * 100
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-sand-200 bg-sand-50 p-[22px]">
       <div className="flex flex-wrap items-baseline gap-2.5">
@@ -252,45 +260,75 @@ function Grafico({ evaluaciones }: { evaluaciones: EvaluacionMenopausiaResponse[
         </span>
       </div>
 
-      <svg
-        viewBox={`0 0 ${ANCHO} ${ALTO}`}
-        className="h-auto w-full"
-        role="img"
-        aria-label={`Puntaje total en ${cronologicas.length} evaluaciones, de ${cronologicas[0].puntajeTotal} a ${cronologicas[cronologicas.length - 1].puntajeTotal} sobre 44`}
-      >
-        {bandas.map((banda) => (
-          <rect
-            key={banda.severidad}
-            x={0}
-            y={y(banda.hasta)}
-            width={ANCHO}
-            height={y(banda.desde) - y(banda.hasta)}
-            fill={COLOR_SEVERIDAD[banda.severidad]}
-            opacity={0.16}
-          />
-        ))}
+      {/* Las etiquetas del eje van en HTML y no como <text> del SVG: el SVG
+          escala con el ancho de la tarjeta y en un celular los números
+          quedarían de 5px. Así conservan su tamaño en cualquier pantalla. */}
+      <div className="flex items-stretch gap-1.5">
+        <div className="relative w-6 flex-none">
+          {marcas.map((marca) => (
+            <span
+              key={marca}
+              style={{ top: `${porcentaje(marca)}%` }}
+              className="absolute right-0 -translate-y-1/2 text-[11px] tabular-nums text-sand-500"
+            >
+              {marca}
+            </span>
+          ))}
+        </div>
 
-        <polyline
-          points={puntos}
-          fill="none"
-          stroke="var(--color-sage-600)"
-          strokeWidth={2.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
+        <svg
+          viewBox={`0 0 ${ANCHO} ${ALTO}`}
+          className="h-auto w-full min-w-0 flex-1"
+          role="img"
+          aria-label={`Puntaje total en ${cronologicas.length} evaluaciones, de ${cronologicas[0].puntajeTotal} a ${cronologicas[cronologicas.length - 1].puntajeTotal} sobre ${MAXIMO}`}
+        >
+          {bandas.map((banda) => (
+            <rect
+              key={banda.severidad}
+              x={0}
+              y={y(banda.hasta)}
+              width={ANCHO}
+              height={y(banda.desde) - y(banda.hasta)}
+              fill={COLOR_SEVERIDAD[banda.severidad]}
+              opacity={0.16}
+            />
+          ))}
 
-        {cronologicas.map((ev, i) => (
-          <circle
-            key={ev.id}
-            cx={x(i)}
-            cy={y(ev.puntajeTotal)}
-            r={5}
-            fill="var(--color-sand-50)"
+          {marcas.map((marca) => (
+            <line
+              key={marca}
+              x1={0}
+              x2={ANCHO}
+              y1={y(marca)}
+              y2={y(marca)}
+              stroke="var(--color-sand-700)"
+              strokeWidth={0.75}
+              opacity={0.28}
+            />
+          ))}
+
+          <polyline
+            points={puntos}
+            fill="none"
             stroke="var(--color-sage-600)"
             strokeWidth={2.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
           />
-        ))}
-      </svg>
+
+          {cronologicas.map((ev, i) => (
+            <circle
+              key={ev.id}
+              cx={x(i)}
+              cy={y(ev.puntajeTotal)}
+              r={5}
+              fill="var(--color-sand-50)"
+              stroke="var(--color-sage-600)"
+              strokeWidth={2.5}
+            />
+          ))}
+        </svg>
+      </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {SEVERIDADES.map((severidad) => (
