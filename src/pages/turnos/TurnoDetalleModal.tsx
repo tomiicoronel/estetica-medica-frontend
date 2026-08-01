@@ -31,8 +31,20 @@ interface Props {
   onPago: (deuda: number) => void
 }
 
-/** El estado actual no se ofrece: cambiarlo por sí mismo no hace nada. */
-const ESTADOS: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 'CANCELADO']
+/**
+ * A qué estado se puede pasar desde cada estado.
+ *
+ * Es la misma máquina que valida `TurnoService.esTransicionValida`: un turno se
+ * confirma antes de realizarse, y REALIZADO y CANCELADO son finales. Ofrecer
+ * los cuatro botones siempre hacía que la regla se descubriera chocándose con
+ * un 400 ("Transición de estado inválida: PENDIENTE → REALIZADO").
+ */
+const TRANSICIONES: Record<EstadoTurno, EstadoTurno[]> = {
+  PENDIENTE: ['CONFIRMADO', 'CANCELADO'],
+  CONFIRMADO: ['REALIZADO', 'CANCELADO'],
+  REALIZADO: [],
+  CANCELADO: [],
+}
 
 export function TurnoDetalleModal({
   turno,
@@ -61,6 +73,8 @@ export function TurnoDetalleModal({
 
   const sinSesion =
     sesion.error instanceof ApiError && sesion.error.status === 404
+
+  const siguientes = TRANSICIONES[turno.estado]
 
   const mutacion = useMutation({
     mutationFn: (nuevoEstado: EstadoTurno) => cambiarEstadoTurno(turno.id, nuevoEstado),
@@ -215,19 +229,26 @@ export function TurnoDetalleModal({
           <span className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-sand-500">
             Cambiar estado
           </span>
-          <div className="flex flex-wrap gap-2">
-            {ESTADOS.filter((estado) => estado !== turno.estado).map((estado) => (
-              <button
-                key={estado}
-                type="button"
-                onClick={() => mutacion.mutate(estado)}
-                disabled={mutacion.isPending}
-                className="min-h-11 rounded-control border border-sand-300 bg-white px-[15px] text-[13px] font-semibold text-sage-700 transition-colors hover:bg-sage-50 disabled:cursor-not-allowed disabled:opacity-60 app:min-h-0 app:py-2"
-              >
-                {ETIQUETA_ESTADO[estado]}
-              </button>
-            ))}
-          </div>
+
+          {siguientes.length === 0 ? (
+            <span className="text-[13px] text-sand-700">
+              Un turno {ETIQUETA_ESTADO[turno.estado].toLowerCase()} ya no cambia de estado.
+            </span>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {siguientes.map((estado) => (
+                <button
+                  key={estado}
+                  type="button"
+                  onClick={() => mutacion.mutate(estado)}
+                  disabled={mutacion.isPending}
+                  className="min-h-11 rounded-control border border-sand-300 bg-white px-[15px] text-[13px] font-semibold text-sage-700 transition-colors hover:bg-sage-50 disabled:cursor-not-allowed disabled:opacity-60 app:min-h-0 app:py-2"
+                >
+                  {ETIQUETA_ESTADO[estado]}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {mutacion.error && <Alert>{mensajeDeError(mutacion.error)}</Alert>}

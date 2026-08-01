@@ -1,8 +1,24 @@
 import type { EstadoTurno, MetodoPago } from '../types/api'
 
-/** Formato del diseño: "$ 50.000", sin decimales. */
+/**
+ * "$ 50.000" para los montos redondos, "$ 19.750,50" cuando hay centavos.
+ *
+ * El diseño muestra los precios sin decimales y esa es la forma habitual, pero
+ * antes se redondeaba siempre y eso llegaba a ocultar deuda: el backend guarda
+ * BigDecimal, así que una deuda de $0,40 se mostraba como "$ 0" estando impaga,
+ * y un precio de $19.750,50 se leía "$ 19.751" — quien tipeara ese número
+ * cobraba de más. Los centavos se muestran sólo cuando existen.
+ */
 export function formatearMonto(monto: number): string {
-  return `$ ${Math.round(monto || 0).toLocaleString('es-AR')}`
+  // Redondeo a centavos antes de decidir: la aritmética en coma flotante deja
+  // restos (38250.500000000004) que si no harían aparecer decimales de más.
+  const valor = Math.round((monto || 0) * 100) / 100
+  const decimales = Number.isInteger(valor) ? 0 : 2
+
+  return `$ ${valor.toLocaleString('es-AR', {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  })}`
 }
 
 /**

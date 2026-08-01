@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../api/client'
 import {
@@ -91,6 +91,25 @@ export function HistoriaClinicaDelPaciente({ pacienteId }: { pacienteId: UUID })
   const completados = contarCompletados(secciones, editando ? borrador : datos)
   const total = contarCampos(secciones)
 
+  /** Mensajes por campo de un 400 de validación. */
+  const errores = guardar.error instanceof ApiError ? guardar.error.mensajes : undefined
+  const errorDe = (clave: string) => errores?.[clave]
+
+  // La ficha es larguísima: sin esto el aviso queda arriba de todo y el campo
+  // rechazado a varias pantallas de scroll, sin ninguna pista de cuál es.
+  useEffect(() => {
+    if (errores === undefined) return
+
+    const primero = todosLosCampos(secciones).find(
+      (campo) => campo.tipo !== 'casillas' && errores[campo.clave] !== undefined,
+    )
+    if (primero === undefined || primero.tipo === 'casillas') return
+
+    document
+      .getElementById(anclaDe(primero.clave))
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [errores, secciones])
+
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center gap-3">
@@ -160,6 +179,7 @@ export function HistoriaClinicaDelPaciente({ pacienteId }: { pacienteId: UUID })
             onCambio={(clave, valor) =>
               setBorrador((previo) => (previo === null ? previo : { ...previo, [clave]: valor }))
             }
+            errorDe={errorDe}
           />
         ))}
 
@@ -173,11 +193,13 @@ function Seccion({
   datos,
   borrador,
   onCambio,
+  errorDe,
 }: {
   seccion: SeccionHC
   datos: Record<string, unknown>
   borrador: Borrador | null
   onCambio: (clave: string, valor: string | boolean) => void
+  errorDe: (clave: string) => string | undefined
 }) {
   return (
     <div className="flex flex-col gap-[18px] rounded-2xl border border-sand-200 bg-sand-50 p-[22px]">
@@ -191,6 +213,7 @@ function Seccion({
             datos={datos}
             borrador={borrador}
             onCambio={onCambio}
+            errorDe={errorDe}
           />
         ))}
       </div>
@@ -198,16 +221,23 @@ function Seccion({
   )
 }
 
+/** Ancla para poder llevar el scroll al campo que el backend rechazó. */
+function anclaDe(clave: string): string {
+  return `hc-campo-${clave}`
+}
+
 function Campo({
   campo,
   datos,
   borrador,
   onCambio,
+  errorDe,
 }: {
   campo: CampoHC
   datos: Record<string, unknown>
   borrador: Borrador | null
   onCambio: (clave: string, valor: string | boolean) => void
+  errorDe: (clave: string) => string | undefined
 }) {
   if (campo.tipo === 'casillas') {
     const marcadas = campo.opciones.filter((opcion) =>
@@ -267,29 +297,33 @@ function Campo({
 
   if (campo.tipo === 'largo') {
     return (
-      <div className="app:col-span-2">
+      <div id={anclaDe(campo.clave)} className="app:col-span-2">
         <Textarea
           label={campo.label}
           superficie="blanco"
           rows={2}
           value={valor}
           onChange={(e) => onCambio(campo.clave, e.target.value)}
+          error={errorDe(campo.clave)}
         />
       </div>
     )
   }
 
   return (
-    <Input
-      label={campo.label}
-      superficie="blanco"
-      type={campo.tipo === 'numero' ? 'number' : 'text'}
-      min={campo.tipo === 'numero' ? campo.min : undefined}
-      max={campo.tipo === 'numero' ? campo.max : undefined}
-      step={campo.tipo === 'numero' ? campo.paso : undefined}
-      value={valor}
-      onChange={(e) => onCambio(campo.clave, e.target.value)}
-    />
+    <div id={anclaDe(campo.clave)}>
+      <Input
+        label={campo.label}
+        superficie="blanco"
+        type={campo.tipo === 'numero' ? 'number' : 'text'}
+        min={campo.tipo === 'numero' ? campo.min : undefined}
+        max={campo.tipo === 'numero' ? campo.max : undefined}
+        step={campo.tipo === 'numero' ? campo.paso : undefined}
+        value={valor}
+        onChange={(e) => onCambio(campo.clave, e.target.value)}
+        error={errorDe(campo.clave)}
+      />
+    </div>
   )
 }
 
