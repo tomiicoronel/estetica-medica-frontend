@@ -7,10 +7,11 @@ import {
 } from './auth/guards'
 import { inicioSegunRol } from './auth/rutas'
 import { useAuth } from './auth/useAuth'
-import { Pendiente } from './components/Pendiente'
 import { AdminLayout } from './layouts/AdminLayout'
 import { AppLayout } from './layouts/AppLayout'
 import { CuentasPage } from './pages/admin/CuentasPage'
+import { BloqueosPage } from './pages/bloqueos/BloqueosPage'
+import { PerfilPage } from './pages/perfil/PerfilPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { LoginPage } from './pages/login/LoginPage'
 import { PacienteDetallePage } from './pages/pacientes/PacienteDetallePage'
@@ -49,8 +50,8 @@ export default function App() {
             <Route path="/turnos" element={<TurnosPage />} />
             <Route path="/servicios" element={<ServiciosPage />} />
             <Route path="/pagos" element={<PagosPage />} />
-            <Route path="/bloqueos" element={<Pendiente titulo="Bloqueos de agenda" />} />
-            <Route path="/perfil" element={<Pendiente titulo="Perfil" />} />
+            <Route path="/bloqueos" element={<BloqueosPage />} />
+            <Route path="/perfil" element={<PerfilPage />} />
           </Route>
         </Route>
 
