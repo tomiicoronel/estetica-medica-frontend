@@ -35,6 +35,14 @@ export function listarTurnosPagina(filtros: FiltrosTurnos): Promise<PageResponse
   return api.get<PageResponse<TurnoResponse>>(`/api/turnos/pagina${query({ ...filtros })}`)
 }
 
+/**
+ * Agenda completa, sin orden garantizado. La usa la pantalla de pagos para
+ * cruzar cada pago con su turno y para calcular la deuda global.
+ */
+export function listarTurnos(): Promise<TurnoResponse[]> {
+  return api.get<TurnoResponse[]>('/api/turnos')
+}
+
 /** Historial completo de un paciente, del más nuevo al más viejo. */
 export function listarTurnosDePaciente(pacienteId: UUID): Promise<TurnoResponse[]> {
   return api.get<TurnoResponse[]>(`/api/pacientes/${pacienteId}/turnos`)

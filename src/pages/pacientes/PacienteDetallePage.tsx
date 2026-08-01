@@ -10,11 +10,14 @@ import { edad, formatearFecha, iniciales } from '../../lib/fecha'
 import { cargado, oGuion, unir } from '../../lib/formato'
 import type { PacienteResponse } from '../../types/api'
 import { PacienteFormModal } from './PacienteFormModal'
+import { FotosDelPaciente } from './FotosDelPaciente'
+import { PagosDelPaciente } from './PagosDelPaciente'
+import { SesionesDelPaciente } from './SesionesDelPaciente'
 import { TurnosDelPaciente } from './TurnosDelPaciente'
 
 /**
  * Pestañas de la ficha, tal cual el diseño. Cada una es una pantalla en sí
- * misma; por ahora sólo "Datos" está construida y el resto avisa que viene.
+ * misma; las que faltan avisan que vienen.
  */
 const TABS = [
   { clave: 'datos', label: 'Datos' },
@@ -112,7 +115,13 @@ export function PacienteDetallePage() {
               />
             )}
 
-            {tab !== 'datos' && tab !== 'turnos' && (
+            {tab === 'sesiones' && <SesionesDelPaciente pacienteId={paciente.id} />}
+
+            {tab === 'pagos' && <PagosDelPaciente pacienteId={paciente.id} />}
+
+            {tab === 'fotos' && <FotosDelPaciente pacienteId={paciente.id} />}
+
+            {!['datos', 'turnos', 'sesiones', 'pagos', 'fotos'].includes(tab) && (
               <TabPendiente label={TABS.find((t) => t.clave === tab)?.label ?? ''} />
             )}
           </>
@@ -136,6 +145,15 @@ export function PacienteDetallePage() {
 }
 
 /** El backend es multi-tenant: la ficha de otra profesional no da 403, da 404. */
+function TabPendiente({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-sand-300 bg-sand-50 px-5 py-14 text-center">
+      <div className="text-sm font-medium">{label}</div>
+      <div className="text-[13px] text-sand-700">Esta pestaña todavía no está construida.</div>
+    </div>
+  )
+}
+
 function mensajeExtra(error: Error) {
   if (!(error instanceof ApiError) || error.status !== 404) return undefined
   return (
@@ -241,15 +259,6 @@ function Datos({ paciente }: { paciente: PacienteResponse }) {
           <span className="break-words text-sm">{valor}</span>
         </div>
       ))}
-    </div>
-  )
-}
-
-function TabPendiente({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-sand-300 bg-sand-50 px-5 py-14 text-center">
-      <div className="text-sm font-medium">{label}</div>
-      <div className="text-[13px] text-sand-700">Esta pestaña todavía no está construida.</div>
     </div>
   )
 }

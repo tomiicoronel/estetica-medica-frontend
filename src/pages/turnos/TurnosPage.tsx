@@ -10,7 +10,9 @@ import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
 import { formatearHora, formatearMonto } from '../../lib/formato'
-import type { EstadoTurno, TurnoResponse, UUID } from '../../types/api'
+import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
+import { PagoFormModal } from '../pagos/PagoFormModal'
+import { SesionFormModal } from '../sesiones/SesionFormModal'
 import { TurnoDetalleModal } from './TurnoDetalleModal'
 import { TurnoFormModal } from './TurnoFormModal'
 
@@ -32,6 +34,11 @@ export function TurnosPage() {
   const [pagina, setPagina] = useState(0)
   const [creando, setCreando] = useState(false)
   const [abierto, setAbierto] = useState<UUID | null>(null)
+  const [sesionDe, setSesionDe] = useState<{
+    turnoId: UUID
+    sesion: SesionClinicaResponse | undefined
+  } | null>(null)
+  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
   const { data: page, isPending, error } = useQuery({
@@ -171,6 +178,38 @@ export function TurnosPage() {
           nombrePaciente={nombreDe(turnoAbierto)}
           onCerrar={() => setAbierto(null)}
           onListo={setAviso}
+          onSesion={(sesion) => {
+            setSesionDe({ turnoId: turnoAbierto.id, sesion })
+            setAbierto(null)
+          }}
+          onPago={(deuda) => {
+            setPagoDe({ turnoId: turnoAbierto.id, deuda })
+            setAbierto(null)
+          }}
+        />
+      )}
+
+      {pagoDe && (
+        <PagoFormModal
+          turnoId={pagoDe.turnoId}
+          deuda={pagoDe.deuda}
+          onCerrar={() => setPagoDe(null)}
+          onListo={(mensaje) => {
+            setPagoDe(null)
+            setAviso(mensaje)
+          }}
+        />
+      )}
+
+      {sesionDe && (
+        <SesionFormModal
+          turnoId={sesionDe.turnoId}
+          sesion={sesionDe.sesion}
+          onCerrar={() => setSesionDe(null)}
+          onListo={(mensaje) => {
+            setSesionDe(null)
+            setAviso(mensaje)
+          }}
         />
       )}
 
