@@ -11,14 +11,13 @@ import { cargado, oGuion, unir } from '../../lib/formato'
 import type { PacienteResponse } from '../../types/api'
 import { PacienteFormModal } from './PacienteFormModal'
 import { FotosDelPaciente } from './FotosDelPaciente'
+import { HistoriaClinicaDelPaciente } from './HistoriaClinicaDelPaciente'
+import { MenopausiaDelPaciente } from './MenopausiaDelPaciente'
 import { PagosDelPaciente } from './PagosDelPaciente'
 import { SesionesDelPaciente } from './SesionesDelPaciente'
 import { TurnosDelPaciente } from './TurnosDelPaciente'
 
-/**
- * Pestañas de la ficha, tal cual el diseño. Cada una es una pantalla en sí
- * misma; las que faltan avisan que vienen.
- */
+/** Pestañas de la ficha, tal cual el diseño. Cada una es una pantalla en sí misma. */
 const TABS = [
   { clave: 'datos', label: 'Datos' },
   { clave: 'hc', label: 'Historia clínica' },
@@ -107,6 +106,10 @@ export function PacienteDetallePage() {
 
             {tab === 'datos' && <Datos paciente={paciente} />}
 
+            {tab === 'hc' && <HistoriaClinicaDelPaciente pacienteId={paciente.id} />}
+
+            {tab === 'mrs' && <MenopausiaDelPaciente pacienteId={paciente.id} />}
+
             {tab === 'turnos' && (
               <TurnosDelPaciente
                 pacienteId={paciente.id}
@@ -120,10 +123,6 @@ export function PacienteDetallePage() {
             {tab === 'pagos' && <PagosDelPaciente pacienteId={paciente.id} />}
 
             {tab === 'fotos' && <FotosDelPaciente pacienteId={paciente.id} />}
-
-            {!['datos', 'turnos', 'sesiones', 'pagos', 'fotos'].includes(tab) && (
-              <TabPendiente label={TABS.find((t) => t.clave === tab)?.label ?? ''} />
-            )}
           </>
         )}
       </div>
@@ -145,15 +144,6 @@ export function PacienteDetallePage() {
 }
 
 /** El backend es multi-tenant: la ficha de otra profesional no da 403, da 404. */
-function TabPendiente({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-sand-300 bg-sand-50 px-5 py-14 text-center">
-      <div className="text-sm font-medium">{label}</div>
-      <div className="text-[13px] text-sand-700">Esta pestaña todavía no está construida.</div>
-    </div>
-  )
-}
-
 function mensajeExtra(error: Error) {
   if (!(error instanceof ApiError) || error.status !== 404) return undefined
   return (

@@ -37,6 +37,22 @@
   --color-clay-500: #b97350;
   --color-clay-700: #8f5233;
 
+  /* Escala MRS — los cuatro niveles de severidad.
+     No están en paleta.md: salen tal cual de `C.MRS_SEV` del diseño. Van como
+     tokens y no como hex sueltos porque se usan en badges, barras y leyenda. */
+  --color-mrs-nulo-bg: #e3efe0;
+  --color-mrs-nulo-fg: #41693c;
+  --color-mrs-nulo-linea: #7e9075;
+  --color-mrs-leve-bg: #fdf1d6;
+  --color-mrs-leve-fg: #8a6410;
+  --color-mrs-leve-linea: #d9a949;
+  --color-mrs-moderado-bg: #f6e3d3;
+  --color-mrs-moderado-fg: #a5622f;
+  --color-mrs-moderado-linea: #c98b6b;
+  --color-mrs-severo-bg: #f7e6e0;
+  --color-mrs-severo-fg: #9a4a2c;
+  --color-mrs-severo-linea: #9a4a2c;
+
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
 
   /* El diseño cambia de sidebar a barra + bottom nav en 860px (`mob = vw < 860`).

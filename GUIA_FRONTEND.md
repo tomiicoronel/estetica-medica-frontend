@@ -506,7 +506,7 @@ interface PacienteResponse extends PacienteRequest {
 
 interface ServicioRequest {
   nombre: string;
-  descripcion?: string;
+  descripcion: string; // obligatoria (@NotBlank)
   precio: number;
 }
 
@@ -549,7 +549,7 @@ interface TurnoResponse {
 
 interface SesionClinicaRequest {
   tratamiento: string;
-  respuestaTolerancia?: string;
+  respuestaTolerancia: string; // obligatoria (@NotBlank)
   observaciones?: string;
 }
 

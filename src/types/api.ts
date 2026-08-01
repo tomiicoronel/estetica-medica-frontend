@@ -118,7 +118,8 @@ export interface PacienteResponse extends PacienteRequest {
 
 export interface ServicioRequest {
   nombre: string
-  descripcion?: string
+  /** Obligatoria: el backend la valida con @NotBlank. */
+  descripcion: string
   precio: number
 }
 
@@ -169,7 +170,8 @@ export interface TurnoResponse {
 
 export interface SesionClinicaRequest {
   tratamiento: string
-  respuestaTolerancia?: string
+  /** Obligatoria: el backend la valida con @NotBlank. */
+  respuestaTolerancia: string
   observaciones?: string
 }
 
