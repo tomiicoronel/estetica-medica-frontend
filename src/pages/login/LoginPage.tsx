@@ -15,6 +15,13 @@ interface LoginLocationState {
   from?: string
 }
 
+/**
+ * Las cuentas de prueba son una comodidad del desarrollo local. Vite fija DEV
+ * en false en cualquier build, así que el bloque no llega a producción: los
+ * emails ni siquiera quedan en el bundle.
+ */
+const MOSTRAR_CUENTAS_PRUEBA = import.meta.env.DEV
+
 export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -82,11 +89,13 @@ export function LoginPage() {
           {mutacion.isPending ? 'Ingresando…' : 'Ingresar'}
         </Button>
 
-        <div className="flex flex-col gap-1.5 border-t border-sand-200 pt-[18px] text-[12.5px] text-sand-700">
-          <div className="font-semibold text-sage-700">Cuentas de prueba</div>
-          <div>admin@estetica.local — panel de administración</div>
-          <div>lucia@estetica.local — espacio de la profesional</div>
-        </div>
+        {MOSTRAR_CUENTAS_PRUEBA && (
+          <div className="flex flex-col gap-1.5 border-t border-sand-200 pt-[18px] text-[12.5px] text-sand-700">
+            <div className="font-semibold text-sage-700">Cuentas de prueba</div>
+            <div>admin@estetica.local — panel de administración</div>
+            <div>lucia@estetica.local — espacio de la profesional</div>
+          </div>
+        )}
       </form>
     </AuthLayout>
   )
