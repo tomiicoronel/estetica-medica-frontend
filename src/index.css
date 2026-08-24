@@ -84,6 +84,18 @@
     color: inherit;
   }
 
+  /* El doble toque rápido sobre un control también hace zoom en iOS. No afecta
+     al scroll ni al pinch-zoom: sólo saca el zoom por doble-tap, que acá es
+     siempre accidental. */
+  button,
+  a,
+  label,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
@@ -133,4 +145,24 @@
 
 @utility animate-om-skeleton {
   animation: om-skeleton 1.2s ease-in-out infinite;
+}
+
+/* iOS hace zoom sobre cualquier campo con letra menor a 16px al enfocarlo, y de
+   paso descoloca la pantalla. Los controles del diseño usan 13–14px, así que por
+   debajo de 860px van a 16px: es el único tamaño que evita el salto, y de paso se
+   leen mejor en el celular. Desde 860px manda el tamaño del diseño.
+
+   Va fuera de `@layer` a propósito: las clases `text-sm` / `text-[13.5px]` de los
+   campos viven en la capa `utilities` de Tailwind, y una regla dentro de
+   `@layer base` perdería contra ellas. El CSS sin capa le gana a cualquier capa,
+   así que no hace falta !important.
+
+   Checkbox y radio quedan afuera: no reciben texto, no disparan el zoom, y
+   tocarles el font-size les altera la caja. */
+@media (max-width: 859.98px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
