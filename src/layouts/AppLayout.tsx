@@ -1,5 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { Modal } from '../components/ui/Modal'
 import { iniciales } from '../lib/fecha'
 
 /** Grupos del sidebar, tal cual el diseño. */
@@ -23,20 +25,42 @@ const GRUPOS = [
   { titulo: 'Cuenta', items: [{ to: '/perfil', label: 'Mi perfil' }] },
 ]
 
-/** Barra inferior de mobile. */
+/** Barra inferior de mobile: los accesos directos del día a día. */
 const NAV_MOBILE = [
   { to: '/dashboard', label: 'Inicio' },
   { to: '/turnos', label: 'Turnos' },
   { to: '/pacientes', label: 'Pacientes' },
-  { to: '/pagos', label: 'Pagos' },
-  { to: '/perfil', label: 'Perfil' },
 ]
+
+/** El resto del menú, detrás del botón "Más" de la barra inferior. */
+const NAV_MOBILE_MAS = [
+  { to: '/bloqueos', label: 'Bloqueos de agenda' },
+  { to: '/pagos', label: 'Pagos y deuda' },
+  { to: '/servicios', label: 'Servicios' },
+  { to: '/perfil', label: 'Mi perfil' },
+]
+
+/** Tres puntos verticales del botón "Más" de la barra inferior. */
+function IconoMas() {
+  return (
+    <svg className="size-[15px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="12" cy="19" r="2" />
+    </svg>
+  )
+}
 
 /** Shell del espacio de la profesional: sidebar claro desde 860px. */
 export function AppLayout() {
   const { perfil, logout } = useAuth()
+  const [masAbierto, setMasAbierto] = useState(false)
+  const { pathname } = useLocation()
 
   const nombreCompleto = perfil ? `${perfil.nombre} ${perfil.apellido}` : 'Mi cuenta'
+
+  // El botón "Más" se marca activo cuando estás parada en una de sus pantallas.
+  const masActivo = NAV_MOBILE_MAS.some((item) => pathname.startsWith(item.to))
 
   return (
     <div className="flex min-h-screen flex-col bg-sand-100 app:grid app:grid-cols-[250px_1fr]">
@@ -152,7 +176,54 @@ export function AppLayout() {
             )}
           </NavLink>
         ))}
+
+        {/* Las pantallas que no entran en la barra viven detrás de este botón. */}
+        <button
+          type="button"
+          onClick={() => setMasAbierto(true)}
+          aria-haspopup="dialog"
+          aria-expanded={masAbierto}
+          className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11.5px] ${
+            masActivo ? 'font-semibold text-sage-700' : 'text-sand-700'
+          }`}
+        >
+          <IconoMas />
+          <span>Más</span>
+        </button>
       </nav>
+
+      {masAbierto && (
+        <Modal titulo="Más opciones" onCerrar={() => setMasAbierto(false)}>
+          <nav className="flex flex-col gap-[3px]">
+            {NAV_MOBILE_MAS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setMasAbierto(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 rounded-control px-[10px] py-3 text-sm transition-colors ${
+                    isActive
+                      ? 'bg-sage-200 font-semibold text-sage-900'
+                      : 'font-medium text-sage-800 hover:bg-sage-100'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <span
+                      aria-hidden
+                      className={`size-[7px] flex-none rounded-full ${
+                        isActive ? 'bg-sage-600' : 'bg-sand-400'
+                      }`}
+                    />
+                    <span>{item.label}</span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+        </Modal>
+      )}
     </div>
   )
 }
