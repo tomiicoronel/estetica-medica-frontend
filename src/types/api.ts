@@ -145,6 +145,13 @@ export interface TurnoRequest {
   observaciones?: string
 }
 
+export interface ActualizarTurnoRequest {
+  // Sin pacienteId: el paciente de un turno no puede cambiarse.
+  fechaHora: LocalDateTime
+  servicioIds: UUID[] // no puede estar vacío
+  observaciones?: string
+}
+
 export interface TurnoServicioResponse {
   servicioId: UUID
   nombre: string

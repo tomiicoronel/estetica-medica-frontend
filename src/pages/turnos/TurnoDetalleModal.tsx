@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../api/client'
 import { getSesionDeTurno } from '../../api/endpoints/sesiones'
-import { cambiarEstadoTurno, getResumenPagosTurno } from '../../api/endpoints/turnos'
+import { cambiarEstadoTurno, eliminarTurno, getResumenPagosTurno } from '../../api/endpoints/turnos'
 import { Alert } from '../../components/ui/Alert'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { ConfirmarModal } from '../../components/ui/ConfirmarModal'
 import { Modal } from '../../components/ui/Modal'
 import { formatearFecha } from '../../lib/fecha'
 import {
@@ -29,7 +31,13 @@ interface Props {
   onSesion: (sesion: SesionClinicaResponse | undefined) => void
   /** Abre el formulario de pago, con lo que falta pagar del turno. */
   onPago: (deuda: number) => void
+  /** Abre `TurnoFormModal` en modo edición para este turno. */
+  onEditar: (turno: TurnoResponse) => void
+  /** El turno se eliminó: la pantalla cierra el modal y muestra el aviso. */
+  onEliminado: (mensaje: string) => void
 }
+
+const EDITABLES: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO']
 
 /**
  * A qué estado se puede pasar desde cada estado.
@@ -53,8 +61,11 @@ export function TurnoDetalleModal({
   onListo,
   onSesion,
   onPago,
+  onEditar,
+  onEliminado,
 }: Props) {
   const queryClient = useQueryClient()
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
 
   const pagos = useQuery({
     queryKey: ['pagos', 'turno', turno.id, 'resumen'],
@@ -85,17 +96,51 @@ export function TurnoDetalleModal({
     },
   })
 
+  const editable = EDITABLES.includes(turno.estado)
+
+  // Sólo se ofrece cuando ya se sabe con certeza que no hay nada que perder:
+  // pagos cargados y en cero, y sin sesión clínica asociada.
+  const sinPagos = pagos.data !== undefined && pagos.data.pagos.length === 0
+  const sinSesionClinica = !realizado || sinSesion
+  const puedeEliminar = sinPagos && sinSesionClinica
+
+  const eliminarMutacion = useMutation({
+    mutationFn: () => eliminarTurno(turno.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      onEliminado('Turno eliminado.')
+    },
+  })
+
   return (
-    <Modal
-      titulo="Turno"
-      subtitulo={`${formatearFecha(turno.fechaHora)} · ${formatearHora(turno.fechaHora)} hs`}
-      onCerrar={onCerrar}
-      pie={
-        <Button type="button" variante="secundario" onClick={onCerrar}>
-          Cerrar
-        </Button>
-      }
-    >
+    <>
+      <Modal
+        titulo="Turno"
+        subtitulo={`${formatearFecha(turno.fechaHora)} · ${formatearHora(turno.fechaHora)} hs`}
+        onCerrar={onCerrar}
+        pie={
+          <>
+            {editable && (
+              <Button type="button" variante="secundario" onClick={() => onEditar(turno)}>
+                Editar turno
+              </Button>
+            )}
+            {puedeEliminar && (
+              <Button
+                type="button"
+                variante="peligro"
+                onClick={() => setConfirmandoEliminar(true)}
+              >
+                Eliminar
+              </Button>
+            )}
+            <Button type="button" variante="secundario" onClick={onCerrar}>
+              Cerrar
+            </Button>
+          </>
+        }
+      >
       <div className="flex flex-col gap-[15px]">
         <div className="flex items-center gap-2.5">
           <span className="text-[17px] font-semibold">{nombrePaciente}</span>
@@ -253,7 +298,30 @@ export function TurnoDetalleModal({
 
         {mutacion.error && <Alert>{mensajeDeError(mutacion.error)}</Alert>}
       </div>
-    </Modal>
+      </Modal>
+
+      {confirmandoEliminar && (
+        <ConfirmarModal
+          titulo="Eliminar turno"
+          peligro
+          cargando={eliminarMutacion.isPending}
+          onCerrar={() => setConfirmandoEliminar(false)}
+          onConfirmar={() => eliminarMutacion.mutate()}
+          confirmarLabel="Eliminar turno"
+        >
+          <p>
+            Esto es para turnos cargados por error: el turno deja de aparecer en la
+            agenda y no se puede deshacer desde la app. Si el paciente canceló el turno,
+            cerrá este diálogo y usá "Cancelar" en vez de esto.
+          </p>
+          {eliminarMutacion.error && (
+            <div className="mt-3">
+              <Alert>{mensajeDeError(eliminarMutacion.error)}</Alert>
+            </div>
+          )}
+        </ConfirmarModal>
+      )}
+    </>
   )
 }
 

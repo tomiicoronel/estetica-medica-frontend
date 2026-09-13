@@ -19,7 +19,7 @@ import { TurnoFormModal } from './TurnoFormModal'
 type FiltroEstado = EstadoTurno | 'todos'
 
 const ESTADOS: { clave: FiltroEstado; label: string }[] = [
-  { clave: 'todos', label: 'Todos' },
+  { clave: 'todos', label: 'Activos' },
   { clave: 'PENDIENTE', label: 'Pendientes' },
   { clave: 'CONFIRMADO', label: 'Confirmados' },
   { clave: 'REALIZADO', label: 'Realizados' },
@@ -33,6 +33,7 @@ export function TurnosPage() {
   const [fecha, setFecha] = useState('')
   const [pagina, setPagina] = useState(0)
   const [creando, setCreando] = useState(false)
+  const [editando, setEditando] = useState<TurnoResponse | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
   const [sesionDe, setSesionDe] = useState<{
     turnoId: UUID
@@ -73,14 +74,18 @@ export function TurnosPage() {
 
   const hayFiltros = estado !== 'todos' || fecha !== ''
 
+  // Al cambiar de filtro se olvida el turno abierto: si quedó fuera de la lista
+  // (p. ej. recién cancelado en "Activos"), no tiene que reabrirse solo en otra pestaña.
   function cambiarEstado(nuevo: FiltroEstado) {
     setEstado(nuevo)
     setPagina(0)
+    setAbierto(null)
   }
 
   function cambiarFecha(nueva: string) {
     setFecha(nueva)
     setPagina(0)
+    setAbierto(null)
   }
 
   const desde = page ? page.pagina * page.tamano : 0
@@ -127,6 +132,7 @@ export function TurnosPage() {
                 setEstado('todos')
                 setFecha('')
                 setPagina(0)
+                setAbierto(null)
               }}
               className="pb-3 text-[13px] text-sand-700 underline transition-colors hover:text-sage-800"
             >
@@ -185,6 +191,25 @@ export function TurnosPage() {
           onPago={(deuda) => {
             setPagoDe({ turnoId: turnoAbierto.id, deuda })
             setAbierto(null)
+          }}
+          onEditar={(turno) => {
+            setEditando(turno)
+            setAbierto(null)
+          }}
+          onEliminado={(mensaje) => {
+            setAbierto(null)
+            setAviso(mensaje)
+          }}
+        />
+      )}
+
+      {editando && (
+        <TurnoFormModal
+          turno={editando}
+          onCerrar={() => setEditando(null)}
+          onListo={(mensaje) => {
+            setEditando(null)
+            setAviso(mensaje)
           }}
         />
       )}
