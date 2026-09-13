@@ -1,5 +1,6 @@
 import { api, query } from '../client'
 import type {
+  ActualizarTurnoRequest,
   EstadoTurno,
   PageResponse,
   ResumenPagoResponse,
@@ -55,6 +56,16 @@ export function crearTurno(datos: TurnoRequest): Promise<TurnoResponse> {
 
 export function cambiarEstadoTurno(id: UUID, nuevoEstado: EstadoTurno): Promise<TurnoResponse> {
   return api.patch<TurnoResponse>(`/api/turnos/${id}/estado${query({ nuevoEstado })}`)
+}
+
+/** Reagenda fecha/hora, servicios y/u observaciones. El paciente no puede cambiarse. */
+export function actualizarTurno(id: UUID, datos: ActualizarTurnoRequest): Promise<TurnoResponse> {
+  return api.put<TurnoResponse>(`/api/turnos/${id}`, datos)
+}
+
+/** Baja lógica: 409 si el turno tiene pagos o sesión clínica asociados. */
+export function eliminarTurno(id: UUID): Promise<void> {
+  return api.delete<void>(`/api/turnos/${id}`)
 }
 
 /** Total, pagado y deuda de un turno. */

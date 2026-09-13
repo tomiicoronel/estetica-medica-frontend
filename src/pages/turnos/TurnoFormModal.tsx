@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../api/client'
 import { listarPacientes } from '../../api/endpoints/pacientes'
 import { listarServiciosActivos } from '../../api/endpoints/servicios'
-import { crearTurno } from '../../api/endpoints/turnos'
+import { actualizarTurno, crearTurno } from '../../api/endpoints/turnos'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
 import { CampoFecha } from '../../components/ui/CampoFecha'
@@ -11,21 +11,26 @@ import { CampoHora } from '../../components/ui/CampoHora'
 import { Modal } from '../../components/ui/Modal'
 import { esHoraValida } from '../../lib/fecha'
 import { formatearMonto } from '../../lib/formato'
-import type { UUID } from '../../types/api'
+import type { TurnoResponse, UUID } from '../../types/api'
 
 interface Props {
   /** Si viene, el turno se agenda para ese paciente y el selector no se muestra. */
   pacienteId?: UUID
+  /** Si viene, el modal edita ese turno en vez de crear uno nuevo. */
+  turno?: TurnoResponse
   onCerrar: () => void
   onListo: (mensaje: string) => void
 }
 
-export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
-  const [paciente, setPaciente] = useState<UUID>(pacienteId ?? '')
-  const [fecha, setFecha] = useState('')
-  const [hora, setHora] = useState('')
-  const [servicioIds, setServicioIds] = useState<UUID[]>([])
-  const [observaciones, setObservaciones] = useState('')
+export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) {
+  const editando = turno !== undefined
+  const [paciente, setPaciente] = useState<UUID>(turno?.pacienteId ?? pacienteId ?? '')
+  const [fecha, setFecha] = useState(turno ? turno.fechaHora.slice(0, 10) : '')
+  const [hora, setHora] = useState(turno ? turno.fechaHora.slice(11, 16) : '')
+  const [servicioIds, setServicioIds] = useState<UUID[]>(
+    turno ? turno.servicios.map((s) => s.servicioId) : [],
+  )
+  const [observaciones, setObservaciones] = useState(turno?.observaciones ?? '')
   const [errorLocal, setErrorLocal] = useState<string | null>(null)
 
   // Sólo los activos: un servicio desactivado no se puede agendar de nuevo.
@@ -37,7 +42,7 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
   const pacientes = useQuery({
     queryKey: ['pacientes'],
     queryFn: listarPacientes,
-    enabled: pacienteId === undefined,
+    enabled: pacienteId === undefined && !editando,
   })
 
   const activos = useMemo(
@@ -45,29 +50,71 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
     [pacientes.data],
   )
 
+  // Servicios que el turno ya tenía y que después se desactivaron: siguen
+  // pudiendo mantenerse o sacarse, pero no volver a agregarse.
+  const serviciosInactivosDelTurno = useMemo(() => {
+    if (!turno) return []
+    const idsActivos = new Set((servicios.data ?? []).map((s) => s.id))
+    return turno.servicios.filter((s) => !idsActivos.has(s.servicioId))
+  }, [turno, servicios.data])
+
+  const listaServicios = useMemo(
+    () => [
+      ...(servicios.data ?? []).map((s) => ({ id: s.id, nombre: s.nombre, inactivo: false })),
+      ...serviciosInactivosDelTurno.map((s) => ({
+        id: s.servicioId,
+        nombre: s.nombre,
+        inactivo: true,
+      })),
+    ],
+    [servicios.data, serviciosInactivosDelTurno],
+  )
+
+  const idsOriginales = useMemo(
+    () => new Set(turno?.servicios.map((s) => s.servicioId) ?? []),
+    [turno],
+  )
+
+  const precioMomentoPorId = useMemo(
+    () => new Map(turno?.servicios.map((s) => [s.servicioId, s.precioMomento]) ?? []),
+    [turno],
+  )
+
+  // Un servicio que ya estaba en el turno conserva su precioMomento congelado;
+  // uno nuevo toma el precio actual. Así se refleja lo mismo que calcula el backend.
+  const precioDe = (id: UUID): number => {
+    if (idsOriginales.has(id)) return precioMomentoPorId.get(id) ?? 0
+    return (servicios.data ?? []).find((s) => s.id === id)?.precio ?? 0
+  }
+
   const total = useMemo(
-    () =>
-      (servicios.data ?? [])
-        .filter((s) => servicioIds.includes(s.id))
-        .reduce((suma, s) => suma + s.precio, 0),
-    [servicios.data, servicioIds],
+    () => servicioIds.reduce((suma, id) => suma + precioDe(id), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [servicioIds, servicios.data, idsOriginales, precioMomentoPorId],
   )
 
   const queryClient = useQueryClient()
 
   const mutacion = useMutation({
-    mutationFn: () =>
-      crearTurno({
-        pacienteId: paciente,
-        // El backend espera LocalDateTime sin zona: se arma pegando fecha y hora.
+    mutationFn: () => {
+      const datos = {
         fechaHora: `${fecha}T${hora}:00`,
         servicioIds,
         observaciones: observaciones.trim() === '' ? undefined : observaciones.trim(),
-      }),
+      }
+      return turno
+        ? actualizarTurno(turno.id, datos)
+        : crearTurno({ pacienteId: paciente, ...datos })
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['turnos'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      onListo('Turno agendado.')
+      if (turno) {
+        await queryClient.invalidateQueries({
+          queryKey: ['pagos', 'turno', turno.id, 'resumen'],
+        })
+      }
+      onListo(turno ? 'Turno actualizado.' : 'Turno agendado.')
     },
   })
 
@@ -105,10 +152,16 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
   const campo = (nombre: string) =>
     error instanceof ApiError ? error.campo(nombre) : undefined
 
+  const mostrarSelectorPaciente = pacienteId === undefined && !editando
+
   return (
     <Modal
-      titulo="Nuevo turno"
-      subtitulo="Se congelan los precios de los servicios al momento de crearlo."
+      titulo={editando ? 'Editar turno' : 'Nuevo turno'}
+      subtitulo={
+        editando
+          ? 'Los servicios que ya tenía el turno conservan su precio original.'
+          : 'Se congelan los precios de los servicios al momento de crearlo.'
+      }
       onCerrar={onCerrar}
       pie={
         <>
@@ -116,13 +169,13 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
             Cancelar
           </Button>
           <Button type="submit" form="form-turno" cargando={mutacion.isPending}>
-            Agendar turno
+            {editando ? 'Guardar cambios' : 'Agendar turno'}
           </Button>
         </>
       }
     >
       <form id="form-turno" onSubmit={onSubmit} className="flex flex-col gap-[15px]">
-        {pacienteId === undefined && (
+        {mostrarSelectorPaciente && (
           <div className="flex flex-col gap-[7px]">
             <label htmlFor="turno-paciente" className="text-[13px] font-medium text-sage-800">
               Paciente<span className="ml-1 text-clay-500">*</span>
@@ -176,26 +229,28 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
             <span className="text-[13px] text-sand-700">Cargando servicios…</span>
           )}
 
-          {servicios.data && servicios.data.length === 0 && (
+          {servicios.data && listaServicios.length === 0 && (
             <span className="text-[13px] text-sand-700">
               No tenés servicios activos. Cargá uno en la pantalla de Servicios.
             </span>
           )}
 
           <div className="flex flex-col gap-2">
-            {(servicios.data ?? []).map((servicio) => {
+            {listaServicios.map((servicio) => {
               const elegido = servicioIds.includes(servicio.id)
+              const bloqueado = servicio.inactivo && !elegido
               return (
                 <button
                   key={servicio.id}
                   type="button"
-                  onClick={() => alternarServicio(servicio.id)}
+                  onClick={() => !bloqueado && alternarServicio(servicio.id)}
+                  disabled={bloqueado}
                   aria-pressed={elegido}
                   className={`flex min-h-11 items-center gap-3 rounded-control border px-[13px] py-2.5 text-left transition-colors ${
                     elegido
                       ? 'border-sage-400 bg-sage-50'
                       : 'border-sand-300 bg-white hover:bg-sand-100'
-                  }`}
+                  } ${bloqueado ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   <span
                     aria-hidden
@@ -205,9 +260,12 @@ export function TurnoFormModal({ pacienteId, onCerrar, onListo }: Props) {
                   >
                     {elegido ? '✓' : ''}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{servicio.nombre}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {servicio.nombre}
+                    {servicio.inactivo && ' (inactivo)'}
+                  </span>
                   <span className="flex-none text-[13.5px] font-semibold text-sage-800">
-                    {formatearMonto(servicio.precio)}
+                    {formatearMonto(precioDe(servicio.id))}
                   </span>
                 </button>
               )

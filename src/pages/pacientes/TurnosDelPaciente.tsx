@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listarTurnosDePaciente } from '../../api/endpoints/turnos'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
@@ -7,7 +7,7 @@ import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
 import { formatearHora, formatearMonto } from '../../lib/formato'
-import type { SesionClinicaResponse, UUID } from '../../types/api'
+import type { SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
 import { SesionFormModal } from '../sesiones/SesionFormModal'
 import { TurnoDetalleModal } from '../turnos/TurnoDetalleModal'
@@ -23,7 +23,9 @@ interface Props {
 /** Pestaña "Turnos" de la ficha: historial completo, sin paginar. */
 export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props) {
   const [creando, setCreando] = useState(false)
+  const [editando, setEditando] = useState<TurnoResponse | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
+  const [mostrarCancelados, setMostrarCancelados] = useState(false)
   const [sesionDe, setSesionDe] = useState<{
     turnoId: UUID
     sesion: SesionClinicaResponse | undefined
@@ -38,12 +40,31 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
 
   const turnoAbierto = turnos?.find((t) => t.id === abierto)
 
+  const cantidadCancelados = useMemo(
+    () => (turnos ?? []).filter((t) => t.estado === 'CANCELADO').length,
+    [turnos],
+  )
+
+  const turnosVisibles = useMemo(
+    () => (turnos ?? []).filter((t) => mostrarCancelados || t.estado !== 'CANCELADO'),
+    [turnos, mostrarCancelados],
+  )
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <span className="text-[13px] text-sand-700">
           {turnos ? `${turnos.length} turno${turnos.length === 1 ? '' : 's'}` : ''}
         </span>
+        {cantidadCancelados > 0 && (
+          <button
+            type="button"
+            onClick={() => setMostrarCancelados((previo) => !previo)}
+            className="text-[12.5px] font-semibold text-sage-700 underline transition-colors hover:text-sage-800"
+          >
+            {mostrarCancelados ? 'Ocultar cancelados' : `Mostrar cancelados (${cantidadCancelados})`}
+          </button>
+        )}
         {activo && (
           <Button className="ml-auto" onClick={() => setCreando(true)}>
             Agendar turno
@@ -54,9 +75,9 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
       {isPending && <Skeleton filas={3} />}
       {error && <ErrorDeCarga error={error} />}
 
-      {turnos && turnos.length > 0 && (
+      {turnos && turnos.length > 0 && turnosVisibles.length > 0 && (
         <div className="flex flex-col overflow-hidden rounded-2xl border border-sand-200 bg-sand-50">
-          {turnos.map((turno) => (
+          {turnosVisibles.map((turno) => (
             <button
               key={turno.id}
               type="button"
@@ -94,6 +115,13 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
         </div>
       )}
 
+      {turnos && turnos.length > 0 && turnosVisibles.length === 0 && (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-sand-300 bg-sand-50 px-5 py-14 text-center">
+          <div className="text-sm font-medium">Todos los turnos están cancelados</div>
+          <div className="text-[13px] text-sand-700">Tocá "Mostrar cancelados" para verlos.</div>
+        </div>
+      )}
+
       {creando && (
         <TurnoFormModal
           pacienteId={pacienteId}
@@ -118,6 +146,25 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
           onPago={(deuda) => {
             setPagoDe({ turnoId: turnoAbierto.id, deuda })
             setAbierto(null)
+          }}
+          onEditar={(turno) => {
+            setEditando(turno)
+            setAbierto(null)
+          }}
+          onEliminado={(mensaje) => {
+            setAbierto(null)
+            setAviso(mensaje)
+          }}
+        />
+      )}
+
+      {editando && (
+        <TurnoFormModal
+          turno={editando}
+          onCerrar={() => setEditando(null)}
+          onListo={(mensaje) => {
+            setEditando(null)
+            setAviso(mensaje)
           }}
         />
       )}
