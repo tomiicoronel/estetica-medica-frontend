@@ -286,7 +286,9 @@ function Tabla({ turnos, nombreDe, onAbrir }: ListaProps) {
               <span className="text-[13.5px] font-semibold text-sage-800">
                 {formatearFecha(turno.fechaHora)}
               </span>
-              <span className="text-xs text-sage-500">{formatearHora(turno.fechaHora)} hs</span>
+              <span className="text-xs text-sage-500">
+                {formatearHora(turno.fechaHora)} – {formatearHora(turno.fechaHoraFin)} hs
+              </span>
             </span>
             <span className="truncate text-sm font-medium">{nombreDe(turno)}</span>
             <span className="truncate text-[13px] text-sand-700">{serviciosDe(turno)}</span>
@@ -319,7 +321,8 @@ function Tarjetas({ turnos, nombreDe, onAbrir }: ListaProps) {
         >
           <span className="flex w-full items-center gap-2.5">
             <span className="text-sm font-semibold text-sage-800">
-              {formatearFecha(turno.fechaHora)} · {formatearHora(turno.fechaHora)} hs
+              {formatearFecha(turno.fechaHora)} · {formatearHora(turno.fechaHora)}–
+              {formatearHora(turno.fechaHoraFin)} hs
             </span>
             <span className="ml-auto">
               <BadgeEstadoTurno estado={turno.estado} />

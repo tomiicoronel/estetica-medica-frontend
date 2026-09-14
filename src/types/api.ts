@@ -144,6 +144,8 @@ export interface ServicioResponse {
 export interface TurnoRequest {
   pacienteId: UUID
   fechaHora: LocalDateTime
+  /** Opcional: si se omite, se calcula como fechaHora + suma de duraciones de los servicios. */
+  fechaHoraFin?: LocalDateTime
   servicioIds: UUID[] // no puede estar vacío
   observaciones?: string
 }
@@ -151,6 +153,11 @@ export interface TurnoRequest {
 export interface ActualizarTurnoRequest {
   // Sin pacienteId: el paciente de un turno no puede cambiarse.
   fechaHora: LocalDateTime
+  /**
+   * Opcional: si se omite, se preserva la duración actual (si los servicios no
+   * cambiaron) o se recalcula según los servicios resultantes (si cambiaron).
+   */
+  fechaHoraFin?: LocalDateTime
   servicioIds: UUID[] // no puede estar vacío
   observaciones?: string
 }
@@ -166,6 +173,8 @@ export interface TurnoResponse {
   profesionalId: UUID
   pacienteId: UUID
   fechaHora: LocalDateTime
+  /** Siempre presente: en turnos legacy sin valor almacenado se calcula al leer. */
+  fechaHoraFin: LocalDateTime
   estado: EstadoTurno
   montoTotal: number
   observaciones?: string

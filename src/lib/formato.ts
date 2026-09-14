@@ -39,6 +39,7 @@ export function formatearHora(iso: string): string {
 
 /** "45 min" para menos de una hora, "1 h 30 min" (u "1 h" si es exacta) para una hora o más. */
 export function formatearDuracion(minutos: number): string {
+  if (!Number.isFinite(minutos) || minutos < 0) return '—'
   if (minutos < 60) return `${minutos} min`
 
   const horas = Math.floor(minutos / 60)

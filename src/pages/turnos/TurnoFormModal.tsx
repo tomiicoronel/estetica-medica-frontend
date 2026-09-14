@@ -1,8 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../api/client'
 import { listarPacientes } from '../../api/endpoints/pacientes'
-import { listarServiciosActivos } from '../../api/endpoints/servicios'
+import { listarServicios, listarServiciosActivos } from '../../api/endpoints/servicios'
 import { actualizarTurno, crearTurno } from '../../api/endpoints/turnos'
 import { Alert } from '../../components/ui/Alert'
 import { Button } from '../../components/ui/Button'
@@ -11,6 +11,7 @@ import { CampoHora } from '../../components/ui/CampoHora'
 import { Modal } from '../../components/ui/Modal'
 import { esHoraValida } from '../../lib/fecha'
 import { formatearMonto } from '../../lib/formato'
+import { desplazarFin, sugerirFin, validarRangoHorario } from '../../lib/horario'
 import type { TurnoResponse, UUID } from '../../types/api'
 
 interface Props {
@@ -27,6 +28,10 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
   const [paciente, setPaciente] = useState<UUID>(turno?.pacienteId ?? pacienteId ?? '')
   const [fecha, setFecha] = useState(turno ? turno.fechaHora.slice(0, 10) : '')
   const [hora, setHora] = useState(turno ? turno.fechaHora.slice(11, 16) : '')
+  const [horaFin, setHoraFin] = useState(turno ? turno.fechaHoraFin.slice(11, 16) : '')
+  // Al editar, el fin ya guardado gana; al crear arranca en modo "sugerido"
+  // hasta que la profesional lo toque a mano.
+  const [finManual, setFinManual] = useState(editando)
   const [servicioIds, setServicioIds] = useState<UUID[]>(
     turno ? turno.servicios.map((s) => s.servicioId) : [],
   )
@@ -37,6 +42,15 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
   const servicios = useQuery({
     queryKey: ['servicios', 'activos'],
     queryFn: listarServiciosActivos,
+  })
+
+  // Activos e inactivos: la duración de un servicio no se congela como el
+  // precio, así que un servicio inactivo que el turno ya tenía necesita
+  // igual su duracionMinutos actual para la suma.
+  const serviciosTodos = useQuery({
+    queryKey: ['servicios'],
+    queryFn: listarServicios,
+    enabled: editando,
   })
 
   const pacientes = useQuery({
@@ -93,12 +107,61 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
     [servicioIds, servicios.data, idsOriginales, precioMomentoPorId],
   )
 
+  // La duración no se congela como el precio: siempre se usa la actual, tanto
+  // para un servicio activo como para uno inactivo que el turno ya tenía.
+  const duracionDe = (id: UUID): number =>
+    (servicios.data ?? []).find((s) => s.id === id)?.duracionMinutos ??
+    (serviciosTodos.data ?? []).find((s) => s.id === id)?.duracionMinutos ??
+    0
+
+  const duracionTotal = useMemo(
+    () => servicioIds.reduce((suma, id) => suma + duracionDe(id), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [servicioIds, servicios.data, serviciosTodos.data],
+  )
+
+  const sugerenciaFin = sugerirFin(hora, duracionTotal)
+  const mostrarSugerencia =
+    finManual && sugerenciaFin !== null && sugerenciaFin !== horaFin
+
+  // Mientras el fin no se tocó a mano, sigue a la sugerencia (inicio + suma de
+  // duraciones) cada vez que cambian el inicio o los servicios elegidos.
+  useEffect(() => {
+    if (finManual) return
+    setHoraFin(sugerirFin(hora, duracionTotal) ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finManual, hora, duracionTotal])
+
+  // CampoHora manda cada valor intermedio mientras se tipea ("1", "14",
+  // "14:3"), que todavía no son horas válidas: desplazar contra esos valores
+  // fallaría siempre. El ancla guarda el último inicio válido para desplazar
+  // siempre desde ahí, no desde el intermedio a medio tipear.
+  const horaAnclaRef = useRef(hora)
+
+  function onCambiarHora(nuevaHora: string) {
+    // Con el fin ya tocado a mano, mover el inicio lo arrastra con la misma
+    // duración (como en Google Calendar); si cruzara la medianoche se deja
+    // el fin como está y la validación al enviar avisa del problema.
+    if (finManual && esHoraValida(nuevaHora)) {
+      const desplazado = desplazarFin(horaAnclaRef.current, horaFin, nuevaHora)
+      if (desplazado !== null) setHoraFin(desplazado)
+    }
+    if (esHoraValida(nuevaHora)) horaAnclaRef.current = nuevaHora
+    setHora(nuevaHora)
+  }
+
+  function onCambiarHoraFin(nuevaHoraFin: string) {
+    setHoraFin(nuevaHoraFin)
+    setFinManual(true)
+  }
+
   const queryClient = useQueryClient()
 
   const mutacion = useMutation({
     mutationFn: () => {
       const datos = {
         fechaHora: `${fecha}T${hora}:00`,
+        fechaHoraFin: `${fecha}T${horaFin}:00`,
         servicioIds,
         observaciones: observaciones.trim() === '' ? undefined : observaciones.trim(),
       }
@@ -136,6 +199,11 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
     }
     if (servicioIds.length === 0) {
       setErrorLocal('Elegí al menos un servicio.')
+      return
+    }
+    const errorRango = validarRangoHorario(hora, horaFin)
+    if (errorRango) {
+      setErrorLocal(errorRango)
       return
     }
 
@@ -201,7 +269,7 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
           </div>
         )}
 
-        <div className="grid gap-[13px] app:grid-cols-2 app:gap-[15px]">
+        <div className="grid gap-[13px] app:grid-cols-3 app:gap-[15px]">
           <CampoFecha
             label="Fecha"
             required
@@ -215,9 +283,34 @@ export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) 
             required
             superficie="blanco"
             value={hora}
-            onChange={setHora}
+            onChange={onCambiarHora}
             ayuda="Escribí 1430 y se completa solo."
           />
+          <div className="flex flex-col gap-[7px]">
+            <CampoHora
+              label="Hora de fin"
+              required
+              superficie="blanco"
+              value={horaFin}
+              onChange={onCambiarHoraFin}
+              error={campo('fechaHoraFin')}
+            />
+            {mostrarSugerencia && sugerenciaFin !== null && (
+              <span className="text-xs text-sand-700">
+                Sugerido: {sugerenciaFin}{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoraFin(sugerenciaFin)
+                    setFinManual(false)
+                  }}
+                  className="font-semibold text-sage-700 underline"
+                >
+                  Usar
+                </button>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-[7px]">
