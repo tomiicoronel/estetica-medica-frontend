@@ -1,16 +1,23 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   IlamyCalendar,
   useIlamyCalendarContext,
   type CalendarEvent,
   type CalendarView,
+  type CellInfo,
 } from '@ilamy/calendar'
+import { dragToCreatePlugin } from '@ilamy/calendar/plugins/drag-to-create'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 import { listarBloqueos } from '../../api/endpoints/bloqueos'
 import { listarPacientes } from '../../api/endpoints/pacientes'
-import { listarTurnosEnRango, listarTurnosPagina } from '../../api/endpoints/turnos'
+import {
+  actualizarTurno,
+  listarTurnosEnRango,
+  listarTurnosPagina,
+} from '../../api/endpoints/turnos'
+import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/PageHeader'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -20,10 +27,13 @@ import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
 import { formatearHora, formatearMonto } from '../../lib/formato'
 import {
+  appointmentUpdateFromEvent,
   bloqueoACalendarEvent,
+  calendarDraftFromSelection,
   crearRangoSemanal,
   serializarRangoVisible,
   turnoACalendarEvent,
+  type CalendarDraft,
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
@@ -53,6 +63,7 @@ export function TurnosPage() {
   const [fecha, setFecha] = useState('')
   const [pagina, setPagina] = useState(0)
   const [creando, setCreando] = useState(false)
+  const [creationDraft, setCreationDraft] = useState<CalendarDraft | null>(null)
   const [editando, setEditando] = useState<TurnoResponse | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
   const [sesionDe, setSesionDe] = useState<{
@@ -62,6 +73,16 @@ export function TurnosPage() {
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(dayjs()))
+  const queryClient = useQueryClient()
+
+  const openCreation = useCallback((selection?: Pick<CellInfo, 'start' | 'end'>) => {
+    setCreationDraft(selection ? calendarDraftFromSelection(selection) : null)
+    setCreando(true)
+  }, [])
+  const dragToCreate = useMemo(
+    () => dragToCreatePlugin({ onSelect: (selection) => openCreation(selection) }),
+    [openCreation],
+  )
 
   const rangoQuery = useMemo(() => serializarRangoVisible(rangoAgenda), [rangoAgenda])
   const agenda = useQuery({
@@ -108,6 +129,43 @@ export function TurnosPage() {
   )
   const errorAgenda = agenda.error ?? bloqueos.error ?? pacientes.error
 
+  const calendarUpdate = useMutation({
+    mutationFn: ({ turno, event }: { turno: TurnoResponse; event: CalendarEvent }) => {
+      const update = appointmentUpdateFromEvent(turno, event)
+      if (!update) throw new Error('appointment_not_editable')
+      return actualizarTurno(turno.id, update)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      setAviso('Turno reprogramado.')
+    },
+    onError: async (mutationError) => {
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      setAviso(
+        mutationError instanceof ApiError
+          ? mutationError.message
+          : 'No pudimos reprogramar el turno. Se restauró el horario anterior.',
+      )
+    },
+  })
+
+  async function updateCalendarEvent(event: CalendarEvent) {
+    const id = event.data?.turnoId
+    const turno = typeof id === 'string' ? agenda.data?.find((item) => item.id === id) : undefined
+
+    if (!turno) {
+      setAviso('Los bloqueos se administran desde Disponibilidad.')
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      return
+    }
+    if (!appointmentUpdateFromEvent(turno, event)) {
+      setAviso('Los turnos realizados o cancelados no se pueden reprogramar.')
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      return
+    }
+    calendarUpdate.mutate({ turno, event })
+  }
+
   // Se busca por id y no se guarda el objeto: al cambiar el estado la query se
   // refresca y el modal tiene que mostrar el turno nuevo, no el que se clickeó.
   const turnoAbierto =
@@ -142,7 +200,7 @@ export function TurnosPage() {
       <PageHeader
         titulo="Turnos"
         subtitulo="Tu agenda completa."
-        accion={<Button onClick={() => setCreando(true)}>Nuevo turno</Button>}
+        accion={<Button onClick={() => openCreation()}>Nuevo turno</Button>}
       />
 
       <div className="flex w-full max-w-[1420px] flex-col gap-4 px-4 pb-25 pt-4 app:gap-[22px] app:px-[34px] app:pb-15 app:pt-7">
@@ -175,13 +233,14 @@ export function TurnosPage() {
               eventHeight={38}
               stickyViewHeader
               hideExportButton
-              disableCellClick
-              disableDragAndDrop
+              plugins={[dragToCreate]}
               headerComponent={<CabeceraAgenda />}
               renderEvent={(event) => <EventoAgenda event={event} />}
               onDateChange={(_fechaActual, rango) =>
                 setRangoAgenda({ inicio: rango.start, fin: rango.end })
               }
+              onCellClick={(selection) => openCreation(selection)}
+              onEventUpdate={updateCalendarEvent}
               onEventClick={(event) => {
                 if (event.data?.tipo === 'turno' && typeof event.data.turnoId === 'string') {
                   setAbierto(event.data.turnoId)
@@ -258,9 +317,15 @@ export function TurnosPage() {
 
       {creando && (
         <TurnoFormModal
-          onCerrar={() => setCreando(false)}
+          initialStart={creationDraft?.start}
+          initialEnd={creationDraft?.end}
+          onCerrar={() => {
+            setCreando(false)
+            setCreationDraft(null)
+          }}
           onListo={(mensaje) => {
             setCreando(false)
+            setCreationDraft(null)
             setAviso(mensaje)
           }}
         />

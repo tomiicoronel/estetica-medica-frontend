@@ -2,7 +2,9 @@ import dayjs from 'dayjs'
 import { describe, expect, it } from 'vitest'
 import type { BloqueoAgendaResponse, EstadoTurno, TurnoResponse } from '../types/api'
 import {
+  appointmentUpdateFromEvent,
   bloqueoACalendarEvent,
+  calendarDraftFromSelection,
   crearRangoSemanal,
   serializarRangoVisible,
   turnoACalendarEvent,
@@ -122,4 +124,42 @@ describe('turnoEsEditable', () => {
   it.each<EstadoTurno>(['REALIZADO', 'CANCELADO'])('prevents editing %s appointments', (estado) => {
     expect(turnoEsEditable(estado)).toBe(false)
   })
+})
+
+describe('calendarDraftFromSelection', () => {
+  it('preserves the exact local start and end without a UTC conversion', () => {
+    expect(
+      calendarDraftFromSelection({
+        start: dayjs('2026-09-16T09:15:00'),
+        end: dayjs('2026-09-16T10:45:00'),
+      }),
+    ).toEqual({
+      start: '2026-09-16T09:15:00',
+      end: '2026-09-16T10:45:00',
+    })
+  })
+})
+
+describe('appointmentUpdateFromEvent', () => {
+  const movedEvent = {
+    ...turnoACalendarEvent(TURNO_BASE, 'Ana Pérez'),
+    start: dayjs('2026-09-15T11:00:00'),
+    end: dayjs('2026-09-15T12:15:00'),
+  }
+
+  it('builds the update payload while preserving services and notes', () => {
+    expect(appointmentUpdateFromEvent(TURNO_BASE, movedEvent)).toEqual({
+      fechaHora: '2026-09-15T11:00:00',
+      fechaHoraFin: '2026-09-15T12:15:00',
+      servicioIds: ['servicio-1', 'servicio-2'],
+      observaciones: 'Control',
+    })
+  })
+
+  it.each<EstadoTurno>(['REALIZADO', 'CANCELADO'])(
+    'rejects updates for %s appointments',
+    (estado) => {
+      expect(appointmentUpdateFromEvent({ ...TURNO_BASE, estado }, movedEvent)).toBeNull()
+    },
+  )
 })
