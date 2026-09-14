@@ -117,7 +117,7 @@ export function TurnoDetalleModal({
     <>
       <Modal
         titulo="Turno"
-        subtitulo={`${formatearFecha(turno.fechaHora)} · ${formatearHora(turno.fechaHora)} hs`}
+        subtitulo={`${formatearFecha(turno.fechaHora)} · ${formatearHora(turno.fechaHora)}–${formatearHora(turno.fechaHoraFin)} hs`}
         onCerrar={onCerrar}
         pie={
           <>

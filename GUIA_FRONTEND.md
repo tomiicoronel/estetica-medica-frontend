@@ -242,6 +242,13 @@ No hay delete físico de servicios. Se activan/desactivan.
 
 Estados válidos: `PENDIENTE`, `CONFIRMADO`, `REALIZADO`, `CANCELADO`.
 
+`TurnoRequest.fechaHoraFin` es **opcional**: si se omite, se calcula como `fechaHora` más la suma de
+las duraciones (`duracionMinutos`) de los servicios elegidos; si se manda explícita, se usa tal cual
+(por ejemplo para agendar un servicio de 20 minutos en una franja de 14:00 a 14:40). Validaciones
+(400): `fechaHoraFin` debe ser posterior a `fechaHora`, y la duración no puede superar las 12 horas.
+`TurnoResponse.fechaHoraFin` **siempre** viene presente: en turnos legacy sin `fechaHoraFin` en la
+base se calcula al leer (suma de duraciones de sus servicios) sin persistirla.
+
 `GET /api/turnos/proximos` devuelve **todos** los turnos de un día (sin límite de cantidad). Con `fecha` devuelve los turnos de esa fecha; sin `fecha` devuelve los turnos del próximo día (a partir de hoy) que tenga turnos, o `[]` si no hay turnos futuros. Ideal para el panel de "próximos turnos" del dashboard.
 
 `GET /api/turnos/pagina` devuelve la agenda paginada (por defecto `size=5`), ordenada por `fechaHora` descendente, dentro de un `PageResponse<TurnoResponse>`. Todos los filtros son opcionales y combinables:
@@ -528,6 +535,7 @@ interface ServicioResponse {
 interface TurnoRequest {
   pacienteId: UUID;
   fechaHora: LocalDateTime;
+  fechaHoraFin?: LocalDateTime; // opcional: si se omite, se calcula como fechaHora + suma de duraciones
   servicioIds: UUID[];
   observaciones?: string;
 }
@@ -543,6 +551,7 @@ interface TurnoResponse {
   profesionalId: UUID;
   pacienteId: UUID;
   fechaHora: LocalDateTime;
+  fechaHoraFin: LocalDateTime; // siempre presente; calculada al leer en turnos legacy sin valor almacenado
   estado: EstadoTurno;
   montoTotal: number;
   observaciones?: string;

@@ -89,7 +89,7 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
                   {formatearFecha(turno.fechaHora)}
                 </span>
                 <span className="text-xs text-sage-500">
-                  {formatearHora(turno.fechaHora)} hs
+                  {formatearHora(turno.fechaHora)}–{formatearHora(turno.fechaHoraFin)} hs
                 </span>
               </span>
               <span className="min-w-0 flex-1 truncate text-[13px] text-sand-700">

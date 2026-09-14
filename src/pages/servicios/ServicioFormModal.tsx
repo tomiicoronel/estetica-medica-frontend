@@ -132,7 +132,10 @@ export function ServicioFormModal({ servicio, onCerrar, onListo }: Props) {
           superficie="blanco"
           ayuda="Entre 5 y 720 minutos. Se usa para sugerir el fin de un turno."
           value={duracionMinutos}
-          onChange={(e) => setDuracionMinutos(e.target.value)}
+          onChange={(e) => {
+            setDuracionMinutos(e.target.value)
+            setErrorLocal(null)
+          }}
           error={campo('duracionMinutos')}
         />
 
