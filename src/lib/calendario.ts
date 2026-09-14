@@ -43,6 +43,13 @@ const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
 
 const FORMATO_LOCAL_DATE_TIME = 'YYYY-MM-DDTHH:mm:ss'
 
+export function crearRangoSemanal(fecha: Dayjs): RangoVisible {
+  const diasDesdeLunes = (fecha.day() + 6) % 7
+  const inicio = fecha.subtract(diasDesdeLunes, 'day').startOf('day')
+
+  return { inicio, fin: inicio.add(6, 'day').endOf('day') }
+}
+
 export function serializarRangoVisible(rango: RangoVisible): RangoTurnosSerializado {
   return {
     desde: rango.inicio.format(FORMATO_LOCAL_DATE_TIME),

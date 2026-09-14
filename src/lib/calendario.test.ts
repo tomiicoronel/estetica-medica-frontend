@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { BloqueoAgendaResponse, EstadoTurno, TurnoResponse } from '../types/api'
 import {
   bloqueoACalendarEvent,
+  crearRangoSemanal,
   serializarRangoVisible,
   turnoACalendarEvent,
   turnoEsEditable,
@@ -46,6 +47,15 @@ describe('serializarRangoVisible', () => {
       desde: '2026-09-14T08:00:00',
       hasta: '2026-09-21T20:00:00',
     })
+  })
+})
+
+describe('crearRangoSemanal', () => {
+  it('uses Monday through Sunday regardless of the selected weekday', () => {
+    const rango = crearRangoSemanal(dayjs('2026-09-16T14:30:00'))
+
+    expect(rango.inicio.format('YYYY-MM-DDTHH:mm:ss')).toBe('2026-09-14T00:00:00')
+    expect(rango.fin.format('YYYY-MM-DDTHH:mm:ss')).toBe('2026-09-20T23:59:59')
   })
 })
 

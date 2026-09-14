@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import {
+  IlamyCalendar,
+  useIlamyCalendarContext,
+  type CalendarEvent,
+  type CalendarView,
+} from '@ilamy/calendar'
+import dayjs from 'dayjs'
+import 'dayjs/locale/es'
+import { listarBloqueos } from '../../api/endpoints/bloqueos'
 import { listarPacientes } from '../../api/endpoints/pacientes'
-import { listarTurnosPagina } from '../../api/endpoints/turnos'
+import { listarTurnosEnRango, listarTurnosPagina } from '../../api/endpoints/turnos'
 import { PageHeader } from '../../components/PageHeader'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -10,6 +19,12 @@ import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
 import { formatearHora, formatearMonto } from '../../lib/formato'
+import {
+  bloqueoACalendarEvent,
+  crearRangoSemanal,
+  serializarRangoVisible,
+  turnoACalendarEvent,
+} from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
 import { SesionFormModal } from '../sesiones/SesionFormModal'
@@ -27,6 +42,11 @@ const ESTADOS: { clave: FiltroEstado; label: string }[] = [
 ]
 
 const POR_PAGINA = 10
+const VISTAS: { clave: CalendarView; label: string }[] = [
+  { clave: 'day', label: 'Día' },
+  { clave: 'week', label: 'Semana' },
+  { clave: 'month', label: 'Mes' },
+]
 
 export function TurnosPage() {
   const [estado, setEstado] = useState<FiltroEstado>('todos')
@@ -41,6 +61,15 @@ export function TurnosPage() {
   } | null>(null)
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(dayjs()))
+
+  const rangoQuery = useMemo(() => serializarRangoVisible(rangoAgenda), [rangoAgenda])
+  const agenda = useQuery({
+    queryKey: ['turnos', 'agenda', rangoQuery],
+    queryFn: () => listarTurnosEnRango(rangoQuery),
+    placeholderData: (previa) => previa,
+  })
+  const bloqueos = useQuery({ queryKey: ['bloqueos'], queryFn: listarBloqueos })
 
   const { data: page, isPending, error } = useQuery({
     queryKey: ['turnos', 'pagina', { estado, fecha, pagina }],
@@ -68,9 +97,22 @@ export function TurnosPage() {
   const nombreDe = (turno: TurnoResponse) =>
     nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'
 
+  const eventos = useMemo(
+    () => [
+      ...(agenda.data ?? []).map((turno) =>
+        turnoACalendarEvent(turno, nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'),
+      ),
+      ...(bloqueos.data ?? []).map(bloqueoACalendarEvent),
+    ],
+    [agenda.data, bloqueos.data, nombrePorPaciente],
+  )
+  const errorAgenda = agenda.error ?? bloqueos.error ?? pacientes.error
+
   // Se busca por id y no se guarda el objeto: al cambiar el estado la query se
   // refresca y el modal tiene que mostrar el turno nuevo, no el que se clickeó.
-  const turnoAbierto = page?.contenido.find((t) => t.id === abierto)
+  const turnoAbierto =
+    agenda.data?.find((turno) => turno.id === abierto) ??
+    page?.contenido.find((turno) => turno.id === abierto)
 
   const hayFiltros = estado !== 'todos' || fecha !== ''
 
@@ -104,6 +146,52 @@ export function TurnosPage() {
       />
 
       <div className="flex w-full max-w-[1420px] flex-col gap-4 px-4 pb-25 pt-4 app:gap-[22px] app:px-[34px] app:pb-15 app:pt-7">
+        <section aria-label="Agenda semanal" className="flex flex-col gap-3">
+          {errorAgenda && <ErrorDeCarga error={errorAgenda} />}
+          {(agenda.isPending || bloqueos.isPending || pacientes.isPending) && <Skeleton filas={4} />}
+
+          <div className="h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-2xl border border-sand-200 bg-sand-50 p-2 app:p-3">
+            <IlamyCalendar
+              events={eventos}
+              initialView="week"
+              firstDayOfWeek="monday"
+              locale="es"
+              timeFormat="24-hour"
+              businessHours={{
+                daysOfWeek: [
+                  'monday',
+                  'tuesday',
+                  'wednesday',
+                  'thursday',
+                  'friday',
+                  'saturday',
+                  'sunday',
+                ],
+                startTime: '08:00',
+                endTime: '20:00',
+              }}
+              scrollTime="08:00:00"
+              dayMaxEvents={3}
+              eventHeight={38}
+              stickyViewHeader
+              hideExportButton
+              disableCellClick
+              disableDragAndDrop
+              headerComponent={<CabeceraAgenda />}
+              renderEvent={(event) => <EventoAgenda event={event} />}
+              onDateChange={(_fechaActual, rango) =>
+                setRangoAgenda({ inicio: rango.start, fin: rango.end })
+              }
+              onEventClick={(event) => {
+                if (event.data?.tipo === 'turno' && typeof event.data.turnoId === 'string') {
+                  setAbierto(event.data.turnoId)
+                }
+              }}
+            />
+          </div>
+        </section>
+
+        <h2 className="text-base font-semibold text-sage-900">Lista y filtros</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-control border border-sand-200 bg-sand-50 p-1">
             {ESTADOS.map(({ clave, label }) => (
@@ -240,6 +328,74 @@ export function TurnosPage() {
 
       {aviso && <Toast mensaje={aviso} onCerrar={() => setAviso(null)} />}
     </>
+  )
+}
+
+function CabeceraAgenda() {
+  const { currentRange, nextPeriod, prevPeriod, setView, today, view } =
+    useIlamyCalendarContext()
+  const inicio = currentRange.start.locale('es')
+  const fin = currentRange.end.locale('es')
+  const titulo = inicio.isSame(fin, 'day')
+    ? inicio.format('D [de] MMMM [de] YYYY')
+    : `${inicio.format('D MMM')} – ${fin.format('D MMM YYYY')}`
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 p-1 app:flex-row app:items-center app:justify-between">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex rounded-control border border-sand-200 bg-white">
+          <button
+            type="button"
+            aria-label="Período anterior"
+            onClick={prevPeriod}
+            className="min-h-11 px-3 text-lg text-sage-800 hover:bg-sage-50"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="Período siguiente"
+            onClick={nextPeriod}
+            className="min-h-11 border-l border-sand-200 px-3 text-lg text-sage-800 hover:bg-sage-50"
+          >
+            ›
+          </button>
+        </div>
+        <Button type="button" variante="secundario" onClick={today} className="min-h-11 py-2">
+          Hoy
+        </Button>
+        <span className="min-w-0 truncate text-sm font-semibold capitalize text-sage-900 app:text-base">
+          {titulo}
+        </span>
+      </div>
+
+      <div className="flex self-start rounded-control bg-sand-100 p-1 app:self-auto">
+        {VISTAS.map(({ clave, label }) => (
+          <button
+            key={clave}
+            type="button"
+            aria-pressed={view === clave}
+            onClick={() => setView(clave)}
+            className={`min-h-10 rounded-[9px] px-3 text-xs font-semibold transition-colors ${
+              view === clave ? 'bg-white text-sage-900 shadow-sm' : 'text-sand-700 hover:bg-sand-50'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function EventoAgenda({ event }: { event: CalendarEvent }) {
+  return (
+    <div className="min-w-0 px-1 py-0.5 text-left leading-tight">
+      <div className="truncate text-[10px] font-semibold">
+        {event.start.format('HH:mm')}–{event.end.format('HH:mm')}
+      </div>
+      <div className="truncate text-[11px]">{event.title}</div>
+    </div>
   )
 }
 
