@@ -223,6 +223,8 @@ Además hay endpoints de "resumen por día" para armar vistas de dos niveles (el
 
 No hay delete físico de servicios. Se activan/desactivan.
 
+`duracionMinutos` es opcional en `ServicioRequest`: al crear, si se omite se usa `60`; al actualizar, si se omite se conserva la duración actual del servicio. Rango permitido: `5` a `720` minutos (400 fuera de rango). Se usa para sugerir el fin de un turno (ver sección Turnos).
+
 ### Turnos
 
 | Método | Path | Body | Respuesta | Acceso |
@@ -508,6 +510,7 @@ interface ServicioRequest {
   nombre: string;
   descripcion: string; // obligatoria (@NotBlank)
   precio: number;
+  duracionMinutos?: number; // opcional: 5-720; al crear default 60, al actualizar conserva el valor actual
 }
 
 interface ServicioResponse {
@@ -517,6 +520,7 @@ interface ServicioResponse {
   descripcion?: string;
   precio: number;
   activo: boolean;
+  duracionMinutos: number;
   creadoEn: LocalDateTime;
   actualizadoEn: LocalDateTime;
 }
