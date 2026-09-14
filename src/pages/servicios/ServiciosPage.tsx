@@ -6,7 +6,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { Button } from '../../components/ui/Button'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
-import { formatearMonto, oGuion } from '../../lib/formato'
+import { formatearDuracion, formatearMonto, oGuion } from '../../lib/formato'
 import type { ServicioResponse } from '../../types/api'
 import { ServicioFormModal } from './ServicioFormModal'
 
@@ -137,8 +137,13 @@ function Tarjeta({
       </p>
 
       <div className="mt-auto flex flex-wrap items-center gap-[9px] border-t border-sand-200 pt-3.5">
-        <span className="mr-auto text-[19px] font-semibold tracking-[-0.02em] text-sage-800">
-          {formatearMonto(servicio.precio)}
+        <span className="mr-auto flex items-baseline gap-1.5">
+          <span className="text-[19px] font-semibold tracking-[-0.02em] text-sage-800">
+            {formatearMonto(servicio.precio)}
+          </span>
+          <span className="text-[12.5px] text-sand-700">
+            {formatearDuracion(servicio.duracionMinutos)}
+          </span>
         </span>
         <button type="button" onClick={onEditar} className={boton}>
           Editar

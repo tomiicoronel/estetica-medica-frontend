@@ -29,6 +29,10 @@ export function ServicioFormModal({ servicio, onCerrar, onListo }: Props) {
   const [nombre, setNombre] = useState(servicio?.nombre ?? '')
   const [descripcion, setDescripcion] = useState(servicio?.descripcion ?? '')
   const [precio, setPrecio] = useState(servicio ? String(servicio.precio) : '')
+  const [duracionMinutos, setDuracionMinutos] = useState(
+    String(servicio?.duracionMinutos ?? 60),
+  )
+  const [errorLocal, setErrorLocal] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
 
@@ -38,6 +42,7 @@ export function ServicioFormModal({ servicio, onCerrar, onListo }: Props) {
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         precio: Number(precio),
+        duracionMinutos: Number(duracionMinutos),
       }
 
       return esEdicion ? actualizarServicio(servicio.id, datos) : crearServicio(datos)
@@ -50,6 +55,14 @@ export function ServicioFormModal({ servicio, onCerrar, onListo }: Props) {
 
   function onSubmit(evento: FormEvent) {
     evento.preventDefault()
+    setErrorLocal(null)
+
+    const duracion = Number(duracionMinutos)
+    if (!Number.isInteger(duracion) || duracion < 5 || duracion > 720) {
+      setErrorLocal('La duración tiene que ser un número entero entre 5 y 720 minutos.')
+      return
+    }
+
     mutacion.mutate()
   }
 
@@ -109,7 +122,21 @@ export function ServicioFormModal({ servicio, onCerrar, onListo }: Props) {
           onChange={(e) => setPrecio(e.target.value)}
           error={campo('precio')}
         />
+        <Input
+          label="Duración (min)"
+          required
+          type="number"
+          min="5"
+          max="720"
+          step="1"
+          superficie="blanco"
+          ayuda="Entre 5 y 720 minutos. Se usa para sugerir el fin de un turno."
+          value={duracionMinutos}
+          onChange={(e) => setDuracionMinutos(e.target.value)}
+          error={campo('duracionMinutos')}
+        />
 
+        {errorLocal && <Alert>{errorLocal}</Alert>}
         {error && <Alert>{mensajeDeError(error)}</Alert>}
       </form>
     </Modal>

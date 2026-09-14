@@ -121,6 +121,8 @@ export interface ServicioRequest {
   /** Obligatoria: el backend la valida con @NotBlank. */
   descripcion: string
   precio: number
+  /** Opcional: 5-720. Al crear, si se omite usa 60; al actualizar, conserva el valor actual. */
+  duracionMinutos?: number
 }
 
 export interface ServicioResponse {
@@ -130,6 +132,7 @@ export interface ServicioResponse {
   descripcion?: string
   precio: number
   activo: boolean
+  duracionMinutos: number
   creadoEn: LocalDateTime
   actualizadoEn: LocalDateTime
 }

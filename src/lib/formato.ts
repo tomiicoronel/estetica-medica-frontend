@@ -37,6 +37,15 @@ export function formatearHora(iso: string): string {
   })
 }
 
+/** "45 min" para menos de una hora, "1 h 30 min" (u "1 h" si es exacta) para una hora o más. */
+export function formatearDuracion(minutos: number): string {
+  if (minutos < 60) return `${minutos} min`
+
+  const horas = Math.floor(minutos / 60)
+  const resto = minutos % 60
+  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`
+}
+
 /** "jueves 5 de junio" */
 export function formatearFechaLarga(fecha: Date): string {
   return fecha.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
