@@ -2,6 +2,7 @@ import { api, query } from '../client'
 import type {
   ActualizarTurnoRequest,
   EstadoTurno,
+  LocalDateTime,
   PageResponse,
   ResumenPagoResponse,
   TurnoRequest,
@@ -23,6 +24,16 @@ interface FiltrosTurnos {
   estado?: EstadoTurno
   /** `yyyy-MM-dd`. Si va, el backend ignora desde/hasta. */
   fecha?: string
+}
+
+export interface RangoTurnosQuery {
+  desde: LocalDateTime
+  hasta: LocalDateTime
+}
+
+/** Turnos del rango visible. El backend interpreta ambos límites como fecha/hora local. */
+export function listarTurnosEnRango(rango: RangoTurnosQuery): Promise<TurnoResponse[]> {
+  return api.get<TurnoResponse[]>(`/api/turnos${query({ ...rango })}`)
 }
 
 /**
