@@ -490,7 +490,7 @@ interface PacienteRequest {
   // profesionalId es legacy e ignorado por la API; no hace falta enviarlo.
   nombre: string;
   apellido: string;
-  dniCuit: string;
+  dniCuit?: string; // opcional; vacío se guarda como null. Si se envía, único por profesional
   fechaNacimiento?: LocalDate;
   telefono: string;
   email?: string;

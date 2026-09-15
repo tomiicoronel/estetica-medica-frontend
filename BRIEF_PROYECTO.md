@@ -69,7 +69,7 @@ Entidades principales (`model/`):
 
 - **Profesional** — cuenta del sistema. Rol `ADMIN` o `PROFESIONAL`. Password hasheada,
   flag `debeCambiarPassword`.
-- **Paciente** — pertenece a una profesional; DNI/CUIT único por profesional; baja lógica
+- **Paciente** — pertenece a una profesional; DNI/CUIT opcional, único por profesional si se carga; baja lógica
   (`activo`) y baja física (solo si no tiene datos asociados).
 - **Servicio** — prestación con precio; se activa/desactiva (no hay borrado físico).
 - **Turno** — agenda de un paciente con uno o más servicios. Congela el precio de cada

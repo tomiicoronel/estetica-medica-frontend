@@ -143,7 +143,7 @@ La app permite registrar y administrar pacientes con sus datos principales.
 Entre la información que se puede guardar se encuentra:
 
 - Nombre y apellido.
-- DNI o CUIT.
+- DNI o CUIT (opcional).
 - Fecha de nacimiento.
 - Teléfono.
 - Email.
