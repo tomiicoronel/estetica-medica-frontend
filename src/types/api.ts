@@ -89,7 +89,8 @@ export interface PacienteRequest {
   // profesionalId es legacy e ignorado por la API; no hace falta enviarlo.
   nombre: string
   apellido: string
-  dniCuit: string
+  // Opcional: la API guarda vacío como null. Si se carga, es único por profesional.
+  dniCuit?: string
   fechaNacimiento?: LocalDate
   telefono: string
   email?: string

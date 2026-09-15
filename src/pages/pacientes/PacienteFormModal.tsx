@@ -67,7 +67,7 @@ export function PacienteFormModal({ paciente, onCerrar, onListo }: Props) {
       const datos: PacienteRequest = {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
-        dniCuit: dniCuit.trim(),
+        dniCuit: opcional(dniCuit),
         telefono: telefono.trim(),
         fechaNacimiento: opcional(fechaNacimiento),
         email: opcional(email),
@@ -146,11 +146,10 @@ export function PacienteFormModal({ paciente, onCerrar, onListo }: Props) {
         />
         <Input
           label="DNI / CUIT"
-          required
           superficie="blanco"
-          // El backend valida ^[0-9.\-]+$: nada de letras ni espacios.
+          // Opcional; si se carga, el backend valida ^[0-9.\-]+$: nada de letras ni espacios.
           inputMode="numeric"
-          placeholder="34.812.907"
+          placeholder="Opcional"
           value={dniCuit}
           onChange={(e) => setDniCuit(e.target.value)}
           error={campo('dniCuit')}

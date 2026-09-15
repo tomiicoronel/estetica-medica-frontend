@@ -219,7 +219,7 @@ function Datos({ paciente }: { paciente: PacienteResponse }) {
 
   const filas: [string, string][] = [
     ['Nombre completo', `${paciente.nombre} ${paciente.apellido}`],
-    ['DNI / CUIT', paciente.dniCuit],
+    ['DNI / CUIT', oGuion(paciente.dniCuit)],
     ['Fecha de nacimiento', nacimiento],
     ['Teléfono', paciente.telefono],
     ['Email', oGuion(paciente.email)],

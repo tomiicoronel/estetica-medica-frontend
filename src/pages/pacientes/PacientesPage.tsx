@@ -242,7 +242,7 @@ function TablaPacientes({
                 </span>
               </span>
             </span>
-            <span className="text-[13.5px] text-sage-700">{paciente.dniCuit}</span>
+            <span className="text-[13.5px] text-sage-700">{oGuion(paciente.dniCuit)}</span>
             <span className="text-[13.5px] text-sage-700">{paciente.telefono}</span>
             <span className="truncate text-[13.5px] text-sage-700">
               {oGuion(paciente.obraSocial)}
