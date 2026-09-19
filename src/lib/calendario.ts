@@ -204,3 +204,18 @@ export function contarTurnosEnDiasOcultos(
     return esFinDeSemana(fecha) && !fecha.isBefore(rango.inicio) && !fecha.isAfter(rango.fin)
   }).length
 }
+
+/** Matches the `app` breakpoint (`--breakpoint-app`) in `index.css`. */
+export const ANCHO_APP_PX = 860
+export const CONSULTA_PANTALLA_CHICA = `(max-width: ${ANCHO_APP_PX - 1}px)`
+
+/** Agenda view to open with: a single day on small screens, the week otherwise. */
+export function vistaInicial(anchoPx: number): 'day' | 'week' {
+  return anchoPx < ANCHO_APP_PX ? 'day' : 'week'
+}
+
+/** Initial agenda view for the current viewport; falls back to the week outside a browser. */
+export function vistaInicialDelNavegador(): 'day' | 'week' {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'week'
+  return window.matchMedia(CONSULTA_PANTALLA_CHICA).matches ? 'day' : 'week'
+}

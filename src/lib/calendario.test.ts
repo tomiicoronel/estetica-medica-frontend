@@ -13,6 +13,7 @@ import {
   textosEvento,
   turnoACalendarEvent,
   turnoEsEditable,
+  vistaInicial,
 } from './calendario'
 
 const TURNO_BASE: TurnoResponse = {
@@ -289,5 +290,17 @@ describe('contarTurnosEnDiasOcultos', () => {
 
   it('returns 0 when there are no appointments', () => {
     expect(contarTurnosEnDiasOcultos([], rango)).toBe(0)
+  })
+})
+
+describe('vistaInicial', () => {
+  it('starts in day view below the app breakpoint', () => {
+    expect(vistaInicial(390)).toBe('day')
+    expect(vistaInicial(859)).toBe('day')
+  })
+
+  it('starts in week view from the app breakpoint', () => {
+    expect(vistaInicial(860)).toBe('week')
+    expect(vistaInicial(1440)).toBe('week')
   })
 })

@@ -39,6 +39,7 @@ import {
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
+  vistaInicialDelNavegador,
   type CalendarDraft,
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
@@ -79,6 +80,8 @@ export function TurnosPage() {
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(dayjs()))
+  // Decided once on mount so a resize never yanks the user out of the view they picked.
+  const [vistaInicial] = useState(vistaInicialDelNavegador)
   const queryClient = useQueryClient()
 
   const openCreation = useCallback((selection?: Pick<CellInfo, 'start' | 'end'>) => {
@@ -227,7 +230,7 @@ export function TurnosPage() {
           >
             <IlamyCalendar
               events={eventos}
-              initialView="week"
+              initialView={vistaInicial}
               firstDayOfWeek="monday"
               hiddenDays={['saturday', 'sunday']}
               locale="es"
