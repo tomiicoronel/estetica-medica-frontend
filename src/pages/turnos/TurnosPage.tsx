@@ -32,8 +32,10 @@ import {
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   COLORES_ESTADO,
+  contarTurnosEnDiasOcultos,
   crearRangoSemanal,
   esEventoCorto,
+  etiquetaRango,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
@@ -131,6 +133,11 @@ export function TurnosPage() {
     ],
     [agenda.data, bloqueos.data, nombrePorPaciente],
   )
+  // Saturday and Sunday are hidden in the grid; count them so nothing disappears silently.
+  const turnosEnDiasOcultos = useMemo(
+    () => contarTurnosEnDiasOcultos(agenda.data ?? [], rangoAgenda),
+    [agenda.data, rangoAgenda],
+  )
   const errorAgenda = agenda.error ?? bloqueos.error ?? pacientes.error
 
   const calendarUpdate = useMutation({
@@ -222,6 +229,7 @@ export function TurnosPage() {
               events={eventos}
               initialView="week"
               firstDayOfWeek="monday"
+              hiddenDays={['saturday', 'sunday']}
               locale="es"
               translations={TRADUCCIONES}
               timeFormat="24-hour"
@@ -244,7 +252,7 @@ export function TurnosPage() {
               stickyViewHeader
               hideExportButton
               plugins={[dragToCreate]}
-              headerComponent={<CabeceraAgenda />}
+              headerComponent={<CabeceraAgenda turnosEnDiasOcultos={turnosEnDiasOcultos} />}
               renderEvent={(event) => <EventoAgenda event={event} />}
               onDateChange={(_fechaActual, rango) =>
                 setRangoAgenda({ inicio: rango.start, fin: rango.end })
@@ -423,14 +431,10 @@ const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 
 const BOTON_NAVEGACION =
   'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
 
-function CabeceraAgenda() {
+function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }) {
   const { currentRange, nextPeriod, prevPeriod, setView, today, view } =
     useIlamyCalendarContext()
-  const inicio = currentRange.start.locale('es')
-  const fin = currentRange.end.locale('es')
-  const titulo = inicio.isSame(fin, 'day')
-    ? inicio.format('D [de] MMMM [de] YYYY')
-    : `${inicio.format('D MMM')} – ${fin.format('D MMM YYYY')}`
+  const titulo = etiquetaRango(currentRange.start, currentRange.end)
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-1 pb-3">
@@ -493,6 +497,15 @@ function CabeceraAgenda() {
           </button>
         ))}
       </div>
+
+      {turnosEnDiasOcultos > 0 && view !== 'day' && (
+        <p className="basis-full text-[12.5px] text-sand-700">
+          {turnosEnDiasOcultos === 1
+            ? 'Hay 1 turno el sábado o domingo que no se muestra acá.'
+            : `Hay ${turnosEnDiasOcultos} turnos el sábado o domingo que no se muestran acá.`}{' '}
+          Podés verlos en la lista de abajo.
+        </p>
+      )}
     </div>
   )
 }

@@ -6,7 +6,9 @@ import {
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   crearRangoSemanal,
+  contarTurnosEnDiasOcultos,
   esEventoCorto,
+  etiquetaRango,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
@@ -243,5 +245,49 @@ describe('esEventoCorto', () => {
   it('treats all-day and multi-day events as not short', () => {
     expect(esEventoCorto(evento('2026-05-04T00:00:00', '2026-05-04T00:10:00', true))).toBe(false)
     expect(esEventoCorto(evento('2026-05-04T23:50:00', '2026-05-05T00:05:00'))).toBe(false)
+  })
+})
+
+describe('etiquetaRango', () => {
+  it('shows the first to last visible day when the range ends on the weekend', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-21T00:00:00'), dayjs('2026-09-27T23:59:59'))
+    expect(etiqueta).toBe('21 sep – 25 sep 2026')
+  })
+
+  it('keeps a single day as a long date', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-23T00:00:00'), dayjs('2026-09-23T23:59:59'))
+    expect(etiqueta).toBe('23 de septiembre de 2026')
+  })
+
+  it('keeps a weekend-only single day untouched', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-26T00:00:00'), dayjs('2026-09-26T23:59:59'))
+    expect(etiqueta).toBe('26 de septiembre de 2026')
+  })
+
+  it('trims weekend days at both ends of a longer range', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-26T00:00:00'), dayjs('2026-10-11T23:59:59'))
+    expect(etiqueta).toBe('28 sep – 9 oct 2026')
+  })
+})
+
+describe('contarTurnosEnDiasOcultos', () => {
+  const rango = { inicio: dayjs('2026-09-21T00:00:00'), fin: dayjs('2026-09-27T23:59:59') }
+
+  it('counts appointments on Saturday and Sunday of the range', () => {
+    const turnos = [
+      { fechaHora: '2026-09-21T10:00:00' },
+      { fechaHora: '2026-09-26T10:00:00' },
+      { fechaHora: '2026-09-27T18:30:00' },
+    ]
+    expect(contarTurnosEnDiasOcultos(turnos, rango)).toBe(2)
+  })
+
+  it('ignores weekend appointments outside the range', () => {
+    const turnos = [{ fechaHora: '2026-09-19T10:00:00' }, { fechaHora: '2026-10-03T10:00:00' }]
+    expect(contarTurnosEnDiasOcultos(turnos, rango)).toBe(0)
+  })
+
+  it('returns 0 when there are no appointments', () => {
+    expect(contarTurnosEnDiasOcultos([], rango)).toBe(0)
   })
 })

@@ -1,5 +1,6 @@
 import type { CalendarEvent, CellInfo } from '@ilamy/calendar'
 import dayjs, { type Dayjs } from 'dayjs'
+import 'dayjs/locale/es'
 import type {
   BloqueoAgendaResponse,
   ActualizarTurnoRequest,
@@ -172,4 +173,34 @@ export function esEventoCorto(event: Pick<CalendarEvent, 'start' | 'end' | 'allD
   if (event.allDay || !event.start.isSame(event.end, 'day')) return false
   const minutos = event.end.diff(event.start, 'minute', true)
   return minutos > 0 && minutos <= MINUTOS_EVENTO_CORTO
+}
+
+function esFinDeSemana(fecha: Dayjs): boolean {
+  return fecha.day() === 0 || fecha.day() === 6
+}
+
+/**
+ * Range label for the agenda header, skipping Saturday/Sunday at both ends because
+ * the agenda only shows Monday to Friday. A single day is shown as a long date.
+ */
+export function etiquetaRango(inicio: Dayjs, fin: Dayjs): string {
+  if (inicio.isSame(fin, 'day')) return inicio.locale('es').format('D [de] MMMM [de] YYYY')
+
+  let primero = inicio.startOf('day')
+  let ultimo = fin.startOf('day')
+  while (esFinDeSemana(primero) && primero.isBefore(ultimo)) primero = primero.add(1, 'day')
+  while (esFinDeSemana(ultimo) && ultimo.isAfter(primero)) ultimo = ultimo.subtract(1, 'day')
+
+  return `${primero.locale('es').format('D MMM')} – ${ultimo.locale('es').format('D MMM YYYY')}`
+}
+
+/** Number of appointments inside `rango` that fall on a Saturday or Sunday (hidden days). */
+export function contarTurnosEnDiasOcultos(
+  turnos: { fechaHora: LocalDateTime }[],
+  rango: RangoVisible,
+): number {
+  return turnos.filter(({ fechaHora }) => {
+    const fecha = dayjs(fechaHora)
+    return esFinDeSemana(fecha) && !fecha.isBefore(rango.inicio) && !fecha.isAfter(rango.fin)
+  }).length
 }
