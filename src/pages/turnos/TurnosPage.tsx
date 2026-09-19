@@ -33,6 +33,7 @@ import {
   calendarDraftFromSelection,
   COLORES_ESTADO,
   crearRangoSemanal,
+  esEventoCorto,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
@@ -215,7 +216,7 @@ export function TurnosPage() {
               them without touching the global token. */}
           <div
             style={{ '--border': 'var(--color-sand-200)' } as CSSProperties}
-            className="[&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
+            className="agenda-turnos [&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
           >
             <IlamyCalendar
               events={eventos}
@@ -499,20 +500,30 @@ function CabeceraAgenda() {
 function EventoAgenda({ event }: { event: CalendarEvent }) {
   const { titulo, detalle, tachado } = textosEvento(event)
   const linea = typeof event.data?.linea === 'string' ? event.data.linea : undefined
+  const corto = esEventoCorto(event)
+  const estiloTitulo = tachado ? 'line-through' : ''
 
   return (
     <div
-      className="h-full min-w-0 rounded-md border-l-[3px] px-1.5 py-0.5 text-left leading-tight"
+      className={`h-full min-w-0 overflow-hidden rounded-md border-l-[3px] px-2 text-left ${
+        corto ? 'flex items-center py-0 leading-none' : 'py-1 leading-tight'
+      }`}
       style={{
         backgroundColor: event.backgroundColor,
         color: event.color,
         borderLeftColor: linea ?? 'transparent',
       }}
     >
-      <div className={`truncate text-[12.5px] font-semibold ${tachado ? 'line-through' : ''}`}>
-        {titulo}
-      </div>
-      <div className="truncate text-[11px] opacity-80">{detalle}</div>
+      {corto ? (
+        <div className={`min-w-0 truncate text-[11px] font-semibold ${estiloTitulo}`}>
+          <span className="opacity-80">{event.start.format('HH:mm')}</span> {titulo}
+        </div>
+      ) : (
+        <>
+          <div className={`truncate text-[12.5px] font-semibold ${estiloTitulo}`}>{titulo}</div>
+          <div className="truncate text-[11px] opacity-80">{detalle}</div>
+        </>
+      )}
     </div>
   )
 }

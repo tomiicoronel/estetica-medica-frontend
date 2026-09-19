@@ -164,3 +164,12 @@ export function textosEvento(event: CalendarEvent): TextosEvento {
 
   return { titulo: event.title, detalle: rango, tachado: false }
 }
+
+const MINUTOS_EVENTO_CORTO = 20
+
+/** True for timed, single-day events of 1 to 20 minutes, which get a compact one-line layout. */
+export function esEventoCorto(event: Pick<CalendarEvent, 'start' | 'end' | 'allDay'>): boolean {
+  if (event.allDay || !event.start.isSame(event.end, 'day')) return false
+  const minutos = event.end.diff(event.start, 'minute', true)
+  return minutos > 0 && minutos <= MINUTOS_EVENTO_CORTO
+}

@@ -6,6 +6,7 @@ import {
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   crearRangoSemanal,
+  esEventoCorto,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
@@ -212,5 +213,35 @@ describe('textosEvento', () => {
       detalle: '12:00 – 13:30',
       tachado: false,
     })
+  })
+})
+
+describe('esEventoCorto', () => {
+  const evento = (inicio: string, fin: string, allDay = false) => ({
+    id: 'e',
+    title: 'e',
+    start: dayjs(inicio),
+    end: dayjs(fin),
+    allDay,
+  })
+
+  it.each([
+    ['15 minutes', '2026-05-04T10:15:00', true],
+    ['20 minutes', '2026-05-04T10:20:00', true],
+    ['21 minutes', '2026-05-04T10:21:00', false],
+    ['30 minutes', '2026-05-04T10:30:00', false],
+    ['60 minutes', '2026-05-04T11:00:00', false],
+  ])('classifies %s', (_label, fin, esperado) => {
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', fin))).toBe(esperado)
+  })
+
+  it('treats zero or negative durations as not short', () => {
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', '2026-05-04T10:00:00'))).toBe(false)
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', '2026-05-04T09:50:00'))).toBe(false)
+  })
+
+  it('treats all-day and multi-day events as not short', () => {
+    expect(esEventoCorto(evento('2026-05-04T00:00:00', '2026-05-04T00:10:00', true))).toBe(false)
+    expect(esEventoCorto(evento('2026-05-04T23:50:00', '2026-05-05T00:05:00'))).toBe(false)
   })
 })

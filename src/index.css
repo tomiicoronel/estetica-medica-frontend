@@ -232,3 +232,9 @@
     font-size: 16px;
   }
 }
+
+/* Taller hour rows in the Turnos agenda so short appointments have room.
+   The library hardcodes `min-h-[60px]` on its time-grid hour cells (the only use of that class). */
+.agenda-turnos .min-h-\[60px\] {
+  min-height: 84px;
+}
