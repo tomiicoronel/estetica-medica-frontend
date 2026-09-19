@@ -2,7 +2,10 @@ import dayjs from 'dayjs'
 import { describe, expect, it } from 'vitest'
 import type { BloqueoAgendaResponse, EstadoTurno, TurnoResponse } from '../types/api'
 import {
+  appointmentUpdateFromEvent,
   bloqueoACalendarEvent,
+  calendarDraftFromSelection,
+  crearRangoSemanal,
   serializarRangoVisible,
   turnoACalendarEvent,
   turnoEsEditable,
@@ -46,6 +49,15 @@ describe('serializarRangoVisible', () => {
       desde: '2026-09-14T08:00:00',
       hasta: '2026-09-21T20:00:00',
     })
+  })
+})
+
+describe('crearRangoSemanal', () => {
+  it('uses Monday through Sunday regardless of the selected weekday', () => {
+    const rango = crearRangoSemanal(dayjs('2026-09-16T14:30:00'))
+
+    expect(rango.inicio.format('YYYY-MM-DDTHH:mm:ss')).toBe('2026-09-14T00:00:00')
+    expect(rango.fin.format('YYYY-MM-DDTHH:mm:ss')).toBe('2026-09-20T23:59:59')
   })
 })
 
@@ -112,4 +124,42 @@ describe('turnoEsEditable', () => {
   it.each<EstadoTurno>(['REALIZADO', 'CANCELADO'])('prevents editing %s appointments', (estado) => {
     expect(turnoEsEditable(estado)).toBe(false)
   })
+})
+
+describe('calendarDraftFromSelection', () => {
+  it('preserves the exact local start and end without a UTC conversion', () => {
+    expect(
+      calendarDraftFromSelection({
+        start: dayjs('2026-09-16T09:15:00'),
+        end: dayjs('2026-09-16T10:45:00'),
+      }),
+    ).toEqual({
+      start: '2026-09-16T09:15:00',
+      end: '2026-09-16T10:45:00',
+    })
+  })
+})
+
+describe('appointmentUpdateFromEvent', () => {
+  const movedEvent = {
+    ...turnoACalendarEvent(TURNO_BASE, 'Ana Pérez'),
+    start: dayjs('2026-09-15T11:00:00'),
+    end: dayjs('2026-09-15T12:15:00'),
+  }
+
+  it('builds the update payload while preserving services and notes', () => {
+    expect(appointmentUpdateFromEvent(TURNO_BASE, movedEvent)).toEqual({
+      fechaHora: '2026-09-15T11:00:00',
+      fechaHoraFin: '2026-09-15T12:15:00',
+      servicioIds: ['servicio-1', 'servicio-2'],
+      observaciones: 'Control',
+    })
+  })
+
+  it.each<EstadoTurno>(['REALIZADO', 'CANCELADO'])(
+    'rejects updates for %s appointments',
+    (estado) => {
+      expect(appointmentUpdateFromEvent({ ...TURNO_BASE, estado }, movedEvent)).toBeNull()
+    },
+  )
 })

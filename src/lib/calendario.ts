@@ -1,7 +1,8 @@
-import type { CalendarEvent } from '@ilamy/calendar'
+import type { CalendarEvent, CellInfo } from '@ilamy/calendar'
 import dayjs, { type Dayjs } from 'dayjs'
 import type {
   BloqueoAgendaResponse,
+  ActualizarTurnoRequest,
   EstadoTurno,
   LocalDateTime,
   TurnoResponse,
@@ -43,10 +44,49 @@ const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
 
 const FORMATO_LOCAL_DATE_TIME = 'YYYY-MM-DDTHH:mm:ss'
 
+export interface CalendarDraft {
+  start: LocalDateTime
+  end: LocalDateTime
+}
+
+function formatLocalDateTime(value: Dayjs): LocalDateTime {
+  return value.format(FORMATO_LOCAL_DATE_TIME)
+}
+
+export function calendarDraftFromSelection(
+  selection: Pick<CellInfo, 'start' | 'end'>,
+): CalendarDraft {
+  return {
+    start: formatLocalDateTime(selection.start),
+    end: formatLocalDateTime(selection.end),
+  }
+}
+
+export function appointmentUpdateFromEvent(
+  turno: TurnoResponse,
+  event: CalendarEvent,
+): ActualizarTurnoRequest | null {
+  if (!turnoEsEditable(turno.estado)) return null
+
+  return {
+    fechaHora: formatLocalDateTime(event.start),
+    fechaHoraFin: formatLocalDateTime(event.end),
+    servicioIds: turno.servicios.map(({ servicioId }) => servicioId),
+    observaciones: turno.observaciones,
+  }
+}
+
+export function crearRangoSemanal(fecha: Dayjs): RangoVisible {
+  const diasDesdeLunes = (fecha.day() + 6) % 7
+  const inicio = fecha.subtract(diasDesdeLunes, 'day').startOf('day')
+
+  return { inicio, fin: inicio.add(6, 'day').endOf('day') }
+}
+
 export function serializarRangoVisible(rango: RangoVisible): RangoTurnosSerializado {
   return {
-    desde: rango.inicio.format(FORMATO_LOCAL_DATE_TIME),
-    hasta: rango.fin.format(FORMATO_LOCAL_DATE_TIME),
+    desde: formatLocalDateTime(rango.inicio),
+    hasta: formatLocalDateTime(rango.fin),
   }
 }
 
