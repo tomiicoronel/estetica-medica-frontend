@@ -7,6 +7,7 @@ import {
   calendarDraftFromSelection,
   crearRangoSemanal,
   serializarRangoVisible,
+  textosEvento,
   turnoACalendarEvent,
   turnoEsEditable,
 } from './calendario'
@@ -176,4 +177,40 @@ describe('appointmentUpdateFromEvent', () => {
       expect(appointmentUpdateFromEvent({ ...TURNO_BASE, estado }, movedEvent)).toBeNull()
     },
   )
+})
+
+describe('textosEvento', () => {
+  it('splits an appointment into patient name and time range with services', () => {
+    const event = turnoACalendarEvent(TURNO_BASE, 'Ana Pérez')
+
+    expect(textosEvento(event)).toEqual({
+      titulo: 'Ana Pérez',
+      detalle: '09:30 – 10:45 · Limpieza facial, Peeling',
+      tachado: false,
+    })
+  })
+
+  it('uses the readable fallback when there are no services', () => {
+    const event = turnoACalendarEvent({ ...TURNO_BASE, servicios: [] }, 'Ana Pérez')
+
+    expect(textosEvento(event).detalle).toBe('09:30 – 10:45 · Sin servicio')
+  })
+
+  it('strikes through only cancelled appointments', () => {
+    const cancelado = turnoACalendarEvent({ ...TURNO_BASE, estado: 'CANCELADO' }, 'Ana Pérez')
+    const pendiente = turnoACalendarEvent({ ...TURNO_BASE, estado: 'PENDIENTE' }, 'Ana Pérez')
+
+    expect(textosEvento(cancelado).tachado).toBe(true)
+    expect(textosEvento(pendiente).tachado).toBe(false)
+  })
+
+  it('keeps the blocked slot title and shows only its time range', () => {
+    const event = bloqueoACalendarEvent(BLOQUEO_BASE)
+
+    expect(textosEvento(event)).toEqual({
+      titulo: 'No disponible · Almuerzo',
+      detalle: '12:00 – 13:30',
+      tachado: false,
+    })
+  })
 })

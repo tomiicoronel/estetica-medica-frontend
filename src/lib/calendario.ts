@@ -96,12 +96,13 @@ export function turnoACalendarEvent(
   turno: TurnoResponse,
   nombrePaciente = 'Paciente',
 ): CalendarEvent {
-  const servicios = turno.servicios.map(({ nombre }) => nombre).filter(Boolean).join(', ')
+  const servicios =
+    turno.servicios.map(({ nombre }) => nombre).filter(Boolean).join(', ') || 'Sin servicio'
   const { color, backgroundColor, linea } = COLORES_ESTADO[turno.estado]
 
   return {
     id: `turno-${turno.id}`,
-    title: `${nombrePaciente} · ${servicios || 'Sin servicio'}`,
+    title: `${nombrePaciente} · ${servicios}`,
     start: dayjs(turno.fechaHora),
     end: dayjs(turno.fechaHoraFin),
     color,
@@ -114,6 +115,8 @@ export function turnoACalendarEvent(
       estado: turno.estado,
       editable: turnoEsEditable(turno.estado),
       linea,
+      paciente: nombrePaciente,
+      servicios,
     },
   }
 }
@@ -136,4 +139,28 @@ export function bloqueoACalendarEvent(bloqueo: BloqueoAgendaResponse): CalendarE
       editable: true,
     },
   }
+}
+
+export interface TextosEvento {
+  /** First line: patient name (or the block title). */
+  titulo: string
+  /** Second line: `HH:MM – HH:MM`, followed by the services for appointments. */
+  detalle: string
+  /** True when the title should be struck through (cancelled appointments). */
+  tachado: boolean
+}
+
+export function textosEvento(event: CalendarEvent): TextosEvento {
+  const rango = `${event.start.format('HH:mm')} – ${event.end.format('HH:mm')}`
+  const { tipo, paciente, servicios, estado } = event.data ?? {}
+
+  if (tipo === 'turno' && typeof paciente === 'string') {
+    return {
+      titulo: paciente,
+      detalle: typeof servicios === 'string' && servicios ? `${rango} · ${servicios}` : rango,
+      tachado: estado === 'CANCELADO',
+    }
+  }
+
+  return { titulo: event.title, detalle: rango, tachado: false }
 }
