@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { BloqueoAgendaResponse, EstadoTurno, TurnoResponse } from '../types/api'
 import {
   appointmentUpdateFromEvent,
+  asignarColumnasEventos,
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   crearRangoSemanal,
@@ -302,5 +303,93 @@ describe('vistaInicial', () => {
   it('starts in week view from the app breakpoint', () => {
     expect(vistaInicial(860)).toBe('week')
     expect(vistaInicial(1440)).toBe('week')
+  })
+})
+
+describe('asignarColumnasEventos', () => {
+  const ev = (id: string, inicio: string, fin: string, allDay = false) => ({
+    id,
+    title: id,
+    start: dayjs(inicio),
+    end: dayjs(fin),
+    allDay,
+  })
+
+  it('gives a lone event the full width', () => {
+    const mapa = asignarColumnasEventos([ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00')])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('splits two overlapping events into two columns', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T09:30:00', '2026-09-21T10:30:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 2 })
+    expect(mapa.get('b')).toEqual({ columna: 1, total: 2 })
+  })
+
+  it('shares one cluster across a chain of overlaps', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T09:30:00', '2026-09-21T11:00:00'),
+      ev('c', '2026-09-21T10:15:00', '2026-09-21T11:30:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 2 })
+    expect(mapa.get('b')).toEqual({ columna: 1, total: 2 })
+    expect(mapa.get('c')).toEqual({ columna: 0, total: 2 })
+  })
+
+  it('does not treat back-to-back events as overlapping', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T10:00:00', '2026-09-21T11:00:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+    expect(mapa.get('b')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('lays out each calendar day independently', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-22T09:00:00', '2026-09-22T10:00:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+    expect(mapa.get('b')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('does not depend on the input order', () => {
+    const a = ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00')
+    const b = ev('b', '2026-09-21T09:30:00', '2026-09-21T10:30:00')
+
+    expect(asignarColumnasEventos([b, a]).get('a')).toEqual({ columna: 0, total: 2 })
+    expect(asignarColumnasEventos([b, a]).get('b')).toEqual({ columna: 1, total: 2 })
+  })
+
+  it('skips all-day and multi-day events so they keep the library layout', () => {
+    const mapa = asignarColumnasEventos([
+      ev('todo', '2026-09-21T00:00:00', '2026-09-21T23:59:59', true),
+      ev('largo', '2026-09-21T22:00:00', '2026-09-22T02:00:00'),
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+    ])
+
+    expect(mapa.has('todo')).toBe(false)
+    expect(mapa.has('largo')).toBe(false)
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('treats a zero-length event as a short block that can still overlap', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T09:00:00'),
+      ev('b', '2026-09-21T09:05:00', '2026-09-21T10:00:00'),
+    ])
+
+    expect(mapa.get('a')?.total).toBe(2)
+    expect(mapa.get('b')?.total).toBe(2)
   })
 })

@@ -29,6 +29,7 @@ import { formatearFecha } from '../../lib/fecha'
 import { ETIQUETA_ESTADO, formatearHora, formatearMonto } from '../../lib/formato'
 import {
   appointmentUpdateFromEvent,
+  asignarColumnasEventos,
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   COLORES_ESTADO,
@@ -127,15 +128,19 @@ export function TurnosPage() {
   const nombreDe = (turno: TurnoResponse) =>
     nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'
 
-  const eventos = useMemo(
-    () => [
+  const eventos = useMemo(() => {
+    const todos = [
       ...(agenda.data ?? []).map((turno) =>
         turnoACalendarEvent(turno, nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'),
       ),
       ...(bloqueos.data ?? []).map(bloqueoACalendarEvent),
-    ],
-    [agenda.data, bloqueos.data, nombrePorPaciente],
-  )
+    ]
+    const columnas = asignarColumnasEventos(todos)
+    return todos.map((event) => {
+      const columna = columnas.get(event.id)
+      return columna ? { ...event, data: { ...event.data, ...columna } } : event
+    })
+  }, [agenda.data, bloqueos.data, nombrePorPaciente])
   // Saturday and Sunday are hidden in the grid; count them so nothing disappears silently.
   const turnosEnDiasOcultos = useMemo(
     () => contarTurnosEnDiasOcultos(agenda.data ?? [], rangoAgenda),
@@ -517,10 +522,13 @@ function EventoAgenda({ event }: { event: CalendarEvent }) {
   const { titulo, detalle, tachado } = textosEvento(event)
   const linea = typeof event.data?.linea === 'string' ? event.data.linea : undefined
   const corto = esEventoCorto(event)
+  const { columna, total } = event.data ?? {}
   const estiloTitulo = tachado ? 'line-through' : ''
 
   return (
     <div
+      data-col={typeof columna === 'number' ? columna : undefined}
+      data-cols={typeof total === 'number' ? total : undefined}
       className={`h-full min-w-0 overflow-hidden rounded-md border-l-[3px] px-2 text-left ${
         corto ? 'flex items-center py-0 leading-none' : 'py-1 leading-tight'
       }`}

@@ -1,6 +1,7 @@
 import type { CalendarEvent, CellInfo } from '@ilamy/calendar'
 import dayjs, { type Dayjs } from 'dayjs'
 import 'dayjs/locale/es'
+import { asignarColumnas, type Columna } from './agendaDia'
 import type {
   BloqueoAgendaResponse,
   ActualizarTurnoRequest,
@@ -218,4 +219,34 @@ export function vistaInicial(anchoPx: number): 'day' | 'week' {
 export function vistaInicialDelNavegador(): 'day' | 'week' {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'week'
   return window.matchMedia(CONSULTA_PANTALLA_CHICA).matches ? 'day' : 'week'
+}
+
+/** Blocks shorter than this still occupy this much room when deciding overlaps (matches their minimum visible height). */
+const MINUTOS_MINIMOS_BLOQUE = 15
+
+/**
+ * Side-by-side column for every timed, single-day event, computed per calendar day
+ * (appointments and blocked slots share the same columns). All-day and multi-day
+ * events are left out so they keep the library's own layout.
+ */
+export function asignarColumnasEventos(
+  events: Pick<CalendarEvent, 'id' | 'start' | 'end' | 'allDay'>[],
+): Map<CalendarEvent['id'], Columna> {
+  const porDia = new Map<string, typeof events>()
+  for (const event of events) {
+    if (event.allDay || !event.start.isSame(event.end, 'day')) continue
+    const dia = event.start.format('YYYY-MM-DD')
+    porDia.set(dia, [...(porDia.get(dia) ?? []), event])
+  }
+
+  const resultado = new Map<CalendarEvent['id'], Columna>()
+  for (const delDia of porDia.values()) {
+    const bloques = delDia.map((event) => {
+      const inicio = event.start.hour() * 60 + event.start.minute()
+      const fin = event.end.hour() * 60 + event.end.minute()
+      return { inicio, fin: Math.max(fin, inicio + MINUTOS_MINIMOS_BLOQUE) }
+    })
+    asignarColumnas(bloques).forEach((columna, i) => resultado.set(delDia[i].id, columna))
+  }
+  return resultado
 }
