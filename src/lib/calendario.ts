@@ -21,25 +21,23 @@ export interface RangoTurnosSerializado {
 interface ColoresEvento {
   color: string
   backgroundColor: string
+  /** Accent color, e.g. for the left border of an appointment card. */
+  linea: string
 }
 
-const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
-  PENDIENTE: {
-    color: 'var(--color-sand-800)',
-    backgroundColor: 'var(--color-sand-200)',
-  },
-  CONFIRMADO: {
-    color: 'var(--color-sage-700)',
-    backgroundColor: 'var(--color-sage-100)',
-  },
-  REALIZADO: {
-    color: 'var(--color-sage-900)',
-    backgroundColor: 'var(--color-sage-300)',
-  },
-  CANCELADO: {
-    color: 'var(--color-clay-700)',
-    backgroundColor: 'var(--color-clay-100)',
-  },
+function coloresDeEstado(estado: string): ColoresEvento {
+  return {
+    color: `var(--color-estado-${estado}-fg)`,
+    backgroundColor: `var(--color-estado-${estado}-bg)`,
+    linea: `var(--color-estado-${estado}-linea)`,
+  }
+}
+
+export const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
+  PENDIENTE: coloresDeEstado('pendiente'),
+  CONFIRMADO: coloresDeEstado('confirmado'),
+  REALIZADO: coloresDeEstado('realizado'),
+  CANCELADO: coloresDeEstado('cancelado'),
 }
 
 const FORMATO_LOCAL_DATE_TIME = 'YYYY-MM-DDTHH:mm:ss'
@@ -99,13 +97,15 @@ export function turnoACalendarEvent(
   nombrePaciente = 'Paciente',
 ): CalendarEvent {
   const servicios = turno.servicios.map(({ nombre }) => nombre).filter(Boolean).join(', ')
+  const { color, backgroundColor, linea } = COLORES_ESTADO[turno.estado]
 
   return {
     id: `turno-${turno.id}`,
     title: `${nombrePaciente} · ${servicios || 'Sin servicio'}`,
     start: dayjs(turno.fechaHora),
     end: dayjs(turno.fechaHoraFin),
-    ...COLORES_ESTADO[turno.estado],
+    color,
+    backgroundColor,
     description: turno.observaciones,
     data: {
       tipo: 'turno',
@@ -113,6 +113,7 @@ export function turnoACalendarEvent(
       pacienteId: turno.pacienteId,
       estado: turno.estado,
       editable: turnoEsEditable(turno.estado),
+      linea,
     },
   }
 }

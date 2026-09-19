@@ -54,6 +54,24 @@
   --color-mrs-severo-fg: #9a4a2c;
   --color-mrs-severo-linea: #9a4a2c;
 
+  /* Estados del turno — un set único de bg/fg/linea por estado, consumido por
+     el Badge (utilidades `bg-estado-*`) y por la agenda (`var(--color-estado-*)`).
+     Espejan los tonos estándar de Tailwind que el Badge ya usaba (amber, sky,
+     emerald, rose: 100 / 800 / 400), con hex literales para que existan siempre
+     en runtime. No están en paleta.md porque son semánticos, no de marca. */
+  --color-estado-pendiente-bg: #fef3c7;
+  --color-estado-pendiente-fg: #92400e;
+  --color-estado-pendiente-linea: #fbbf24;
+  --color-estado-confirmado-bg: #e0f2fe;
+  --color-estado-confirmado-fg: #075985;
+  --color-estado-confirmado-linea: #38bdf8;
+  --color-estado-realizado-bg: #d1fae5;
+  --color-estado-realizado-fg: #065f46;
+  --color-estado-realizado-linea: #34d399;
+  --color-estado-cancelado-bg: #ffe4e6;
+  --color-estado-cancelado-fg: #9f1239;
+  --color-estado-cancelado-linea: #fb7185;
+
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
 
   /* El diseño cambia de sidebar a barra + bottom nav en 860px (`mob = vw < 860`).

@@ -68,18 +68,32 @@ describe('turnoACalendarEvent', () => {
     expect(event).toMatchObject({
       id: 'turno-turno-1',
       title: 'Ana Pérez · Limpieza facial, Peeling',
-      color: 'var(--color-sage-700)',
-      backgroundColor: 'var(--color-sage-100)',
+      color: 'var(--color-estado-confirmado-fg)',
+      backgroundColor: 'var(--color-estado-confirmado-bg)',
       description: 'Control',
       data: {
         tipo: 'turno',
         turnoId: 'turno-1',
         estado: 'CONFIRMADO',
         editable: true,
+        linea: 'var(--color-estado-confirmado-linea)',
       },
     })
     expect(event.start.format('YYYY-MM-DDTHH:mm:ss')).toBe(TURNO_BASE.fechaHora)
     expect(event.end.format('YYYY-MM-DDTHH:mm:ss')).toBe(TURNO_BASE.fechaHoraFin)
+  })
+
+  it.each<[EstadoTurno, string]>([
+    ['PENDIENTE', 'pendiente'],
+    ['CONFIRMADO', 'confirmado'],
+    ['REALIZADO', 'realizado'],
+    ['CANCELADO', 'cancelado'],
+  ])('maps %s to the shared estado design tokens', (estado, token) => {
+    const event = turnoACalendarEvent({ ...TURNO_BASE, estado })
+
+    expect(event.backgroundColor).toBe(`var(--color-estado-${token}-bg)`)
+    expect(event.color).toBe(`var(--color-estado-${token}-fg)`)
+    expect(event.data?.linea).toBe(`var(--color-estado-${token}-linea)`)
   })
 
   it('uses readable fallbacks when patient or service names are unavailable', () => {
