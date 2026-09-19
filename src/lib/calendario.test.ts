@@ -8,9 +8,13 @@ import {
   calendarDraftFromSelection,
   crearRangoSemanal,
   contarTurnosEnDiasOcultos,
+  diaHabilInicial,
   esEventoCorto,
+  etiquetaPeriodo,
   etiquetaRango,
   serializarRangoVisible,
+  siguienteDiaHabil,
+  textoAvisoFinDeSemana,
   textosEvento,
   turnoACalendarEvent,
   turnoEsEditable,
@@ -272,6 +276,74 @@ describe('etiquetaRango', () => {
   })
 })
 
+describe('etiquetaPeriodo', () => {
+  const semanaIni = dayjs('2026-09-21T00:00:00')
+  const semanaFin = dayjs('2026-09-27T23:59:59')
+
+  it('week: capitalizes month abbreviations of the Monday to Friday range', () => {
+    expect(etiquetaPeriodo('week', dayjs('2026-09-23'), semanaIni, semanaFin)).toBe(
+      '21 Sep – 25 Sep 2026',
+    )
+  })
+
+  it('week: handles a range that crosses a month boundary', () => {
+    const etiqueta = etiquetaPeriodo(
+      'week',
+      dayjs('2026-09-30'),
+      dayjs('2026-09-28T00:00:00'),
+      dayjs('2026-10-04T23:59:59'),
+    )
+    expect(etiqueta).toBe('28 Sep – 2 Oct 2026')
+  })
+
+  it('week: handles a range that crosses a year boundary', () => {
+    const etiqueta = etiquetaPeriodo(
+      'week',
+      dayjs('2026-12-31'),
+      dayjs('2026-12-28T00:00:00'),
+      dayjs('2027-01-03T23:59:59'),
+    )
+    expect(etiqueta).toBe('28 Dic – 1 Ene 2027')
+  })
+
+  it('day: capitalizes the weekday and keeps "de" and the month lowercase', () => {
+    expect(etiquetaPeriodo('day', dayjs('2026-09-26'), semanaIni, semanaFin)).toBe(
+      'Sábado 26 de septiembre de 2026',
+    )
+    expect(etiquetaPeriodo('day', dayjs('2026-09-21'), semanaIni, semanaFin)).toBe(
+      'Lunes 21 de septiembre de 2026',
+    )
+  })
+
+  it('day: supports a leap day', () => {
+    expect(etiquetaPeriodo('day', dayjs('2028-02-29'), semanaIni, semanaFin)).toBe(
+      'Martes 29 de febrero de 2028',
+    )
+  })
+
+  it('month: uses the current date month, not the visible grid range', () => {
+    const etiqueta = etiquetaPeriodo(
+      'month',
+      dayjs('2026-10-15'),
+      dayjs('2026-09-28T00:00:00'),
+      dayjs('2026-11-06T23:59:59'),
+    )
+    expect(etiqueta).toBe('Octubre de 2026')
+  })
+
+  it('month: works at month and year boundaries', () => {
+    const rango = [dayjs('2026-12-28'), dayjs('2027-02-06')] as const
+    expect(etiquetaPeriodo('month', dayjs('2026-12-31'), ...rango)).toBe('Diciembre de 2026')
+    expect(etiquetaPeriodo('month', dayjs('2027-01-01'), ...rango)).toBe('Enero de 2027')
+  })
+
+  it('falls back to the range label for other views', () => {
+    expect(etiquetaPeriodo('year', dayjs('2026-09-23'), semanaIni, semanaFin)).toBe(
+      '21 Sep – 25 Sep 2026',
+    )
+  })
+})
+
 describe('contarTurnosEnDiasOcultos', () => {
   const rango = { inicio: dayjs('2026-09-21T00:00:00'), fin: dayjs('2026-09-27T23:59:59') }
 
@@ -391,5 +463,88 @@ describe('asignarColumnasEventos', () => {
 
     expect(mapa.get('a')?.total).toBe(2)
     expect(mapa.get('b')?.total).toBe(2)
+  })
+})
+
+describe('siguienteDiaHabil', () => {
+  const ymd = (fecha: dayjs.Dayjs) => fecha.format('YYYY-MM-DD')
+
+  it('moves one day inside the working week', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-23'), 1))).toBe('2026-09-24')
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-23'), -1))).toBe('2026-09-22')
+  })
+
+  it('jumps from Friday to Monday going forward', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-25'), 1))).toBe('2026-09-28')
+  })
+
+  it('jumps from Monday to the previous Friday going back', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-21'), -1))).toBe('2026-09-18')
+  })
+
+  it('lands on a working day when starting on a weekend', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-26'), 1))).toBe('2026-09-28')
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-27'), 1))).toBe('2026-09-28')
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-26'), -1))).toBe('2026-09-25')
+    expect(ymd(siguienteDiaHabil(dayjs('2026-09-27'), -1))).toBe('2026-09-25')
+  })
+
+  it('crosses month and year boundaries', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2026-10-30'), 1))).toBe('2026-11-02')
+    expect(ymd(siguienteDiaHabil(dayjs('2026-11-02'), -1))).toBe('2026-10-30')
+    expect(ymd(siguienteDiaHabil(dayjs('2027-12-31'), 1))).toBe('2028-01-03')
+    expect(ymd(siguienteDiaHabil(dayjs('2029-01-01'), -1))).toBe('2028-12-29')
+  })
+
+  it('handles the leap day', () => {
+    expect(ymd(siguienteDiaHabil(dayjs('2028-02-28'), 1))).toBe('2028-02-29')
+    expect(ymd(siguienteDiaHabil(dayjs('2028-02-29'), 1))).toBe('2028-03-01')
+    expect(ymd(siguienteDiaHabil(dayjs('2028-03-01'), -1))).toBe('2028-02-29')
+  })
+
+  it('keeps the time of day', () => {
+    expect(siguienteDiaHabil(dayjs('2026-09-25T15:30:00'), 1).format('HH:mm')).toBe('15:30')
+  })
+})
+
+describe('diaHabilInicial', () => {
+  const ymd = (fecha: dayjs.Dayjs) => fecha.format('YYYY-MM-DD')
+
+  it('keeps a working day as is', () => {
+    expect(ymd(diaHabilInicial(dayjs('2026-09-21')))).toBe('2026-09-21')
+    expect(ymd(diaHabilInicial(dayjs('2026-09-25')))).toBe('2026-09-25')
+  })
+
+  it('moves Saturday and Sunday to the next Monday', () => {
+    expect(ymd(diaHabilInicial(dayjs('2026-09-26')))).toBe('2026-09-28')
+    expect(ymd(diaHabilInicial(dayjs('2026-09-27')))).toBe('2026-09-28')
+  })
+
+  it('crosses month and year boundaries', () => {
+    expect(ymd(diaHabilInicial(dayjs('2026-10-31')))).toBe('2026-11-02')
+    expect(ymd(diaHabilInicial(dayjs('2028-12-31')))).toBe('2029-01-01')
+  })
+})
+
+describe('textoAvisoFinDeSemana', () => {
+  it('uses the singular for one appointment', () => {
+    expect(textoAvisoFinDeSemana(1, false)).toBe(
+      'Hay 1 turno el sábado o domingo que no se muestra acá. Podés verlo en la lista de abajo.',
+    )
+  })
+
+  it('uses the plural for several appointments', () => {
+    expect(textoAvisoFinDeSemana(4, false)).toBe(
+      'Hay 4 turnos el sábado o domingo que no se muestran acá. Podés verlos en la lista de abajo.',
+    )
+  })
+
+  it('tells to clear the filters when some are active', () => {
+    expect(textoAvisoFinDeSemana(1, true)).toBe(
+      'Hay 1 turno el sábado o domingo que no se muestra acá. Quitá los filtros para verlo en la lista de abajo.',
+    )
+    expect(textoAvisoFinDeSemana(3, true)).toBe(
+      'Hay 3 turnos el sábado o domingo que no se muestran acá. Quitá los filtros para verlos en la lista de abajo.',
+    )
   })
 })

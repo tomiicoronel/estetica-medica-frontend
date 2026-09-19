@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   defaultTranslations,
@@ -34,14 +34,18 @@ import {
   calendarDraftFromSelection,
   COLORES_ESTADO,
   contarTurnosEnDiasOcultos,
+  diaHabilInicial,
   crearRangoSemanal,
   esEventoCorto,
-  etiquetaRango,
+  etiquetaPeriodo,
   serializarRangoVisible,
+  siguienteDiaHabil,
+  textoAvisoFinDeSemana,
   textosEvento,
   turnoACalendarEvent,
   vistaInicialDelNavegador,
   type CalendarDraft,
+  type RangoVisible,
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
@@ -80,7 +84,9 @@ export function TurnosPage() {
   } | null>(null)
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
-  const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(dayjs()))
+  // The agenda never opens on a weekend: Saturday/Sunday start on the next Monday.
+  const [fechaInicial] = useState(() => diaHabilInicial(dayjs()))
+  const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(fechaInicial))
   // Decided once on mount so a resize never yanks the user out of the view they picked.
   const [vistaInicial] = useState(vistaInicialDelNavegador)
   const queryClient = useQueryClient()
@@ -236,6 +242,7 @@ export function TurnosPage() {
             <IlamyCalendar
               events={eventos}
               initialView={vistaInicial}
+              initialDate={fechaInicial}
               firstDayOfWeek="monday"
               hiddenDays={['saturday', 'sunday']}
               locale="es"
@@ -260,7 +267,13 @@ export function TurnosPage() {
               stickyViewHeader
               hideExportButton
               plugins={[dragToCreate]}
-              headerComponent={<CabeceraAgenda turnosEnDiasOcultos={turnosEnDiasOcultos} />}
+              headerComponent={
+                <CabeceraAgenda
+                  turnosEnDiasOcultos={turnosEnDiasOcultos}
+                  hayFiltros={hayFiltros}
+                  alCambiarRango={setRangoAgenda}
+                />
+              }
               renderEvent={(event) => <EventoAgenda event={event} />}
               onDateChange={(_fechaActual, rango) =>
                 setRangoAgenda({ inicio: rango.start, fin: rango.end })
@@ -439,10 +452,35 @@ const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 
 const BOTON_NAVEGACION =
   'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
 
-function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }) {
-  const { currentRange, nextPeriod, prevPeriod, setView, today, view } =
+function CabeceraAgenda({
+  turnosEnDiasOcultos,
+  hayFiltros,
+  alCambiarRango,
+}: {
+  turnosEnDiasOcultos: number
+  hayFiltros: boolean
+  alCambiarRango: (rango: RangoVisible) => void
+}) {
+  const { currentDate, currentRange, nextPeriod, prevPeriod, setCurrentDate, setView, view } =
     useIlamyCalendarContext()
-  const titulo = etiquetaRango(currentRange.start, currentRange.end)
+
+  // The library only fires `onDateChange` for its own arrows. Our day-view navigation calls
+  // `setCurrentDate` (to skip weekends), which does not, so the fetched range would stay on
+  // the first day and every other day would look empty. Syncing the visible range here covers
+  // every way of changing the date. Millisecond values keep the effect from firing on
+  // identity changes only.
+  const inicioMs = currentRange.start.valueOf()
+  const finMs = currentRange.end.valueOf()
+  useEffect(() => {
+    alCambiarRango({ inicio: dayjs(inicioMs), fin: dayjs(finMs) })
+  }, [inicioMs, finMs, alCambiarRango])
+  // Day view skips Saturday and Sunday; week and month keep the library navigation.
+  const enDia = view === 'day'
+  const irAnterior = enDia ? () => setCurrentDate(siguienteDiaHabil(currentDate, -1)) : prevPeriod
+  const irSiguiente = enDia ? () => setCurrentDate(siguienteDiaHabil(currentDate, 1)) : nextPeriod
+  // "Hoy" in every view: on a weekend it lands on Monday, the same date the agenda opens on.
+  const irAHoy = () => setCurrentDate(diaHabilInicial(dayjs()))
+  const titulo = etiquetaPeriodo(view, currentDate, currentRange.start, currentRange.end)
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-1 pb-3">
@@ -451,7 +489,7 @@ function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }
           <button
             type="button"
             aria-label="Período anterior"
-            onClick={prevPeriod}
+            onClick={irAnterior}
             className={BOTON_NAVEGACION}
           >
             ‹
@@ -459,7 +497,7 @@ function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }
           <button
             type="button"
             aria-label="Período siguiente"
-            onClick={nextPeriod}
+            onClick={irSiguiente}
             className={`${BOTON_NAVEGACION} border-l border-sand-300`}
           >
             ›
@@ -467,12 +505,12 @@ function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }
         </div>
         <button
           type="button"
-          onClick={today}
+          onClick={irAHoy}
           className="min-h-11 rounded-xl border border-sand-300 bg-white px-3.5 text-[13px] font-semibold text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9"
         >
           Hoy
         </button>
-        <span className="min-w-0 truncate text-sm font-semibold capitalize text-sage-900 app:text-base">
+        <span className="min-w-0 truncate text-sm font-semibold text-sage-900 app:text-base">
           {titulo}
         </span>
       </div>
@@ -496,7 +534,7 @@ function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }
             key={clave}
             type="button"
             aria-pressed={view === clave}
-            onClick={() => setView(clave)}
+            onClick={() => (clave === 'day' ? setView(clave, diaHabilInicial(currentDate)) : setView(clave))}
             className={`min-h-10 rounded-[9px] px-3 text-xs font-semibold transition-colors app:min-h-8 ${
               view === clave ? 'bg-white text-sage-900 shadow-sm' : 'text-sand-700 hover:bg-sand-50'
             }`}
@@ -508,10 +546,7 @@ function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }
 
       {turnosEnDiasOcultos > 0 && view !== 'day' && (
         <p className="basis-full text-[12.5px] text-sand-700">
-          {turnosEnDiasOcultos === 1
-            ? 'Hay 1 turno el sábado o domingo que no se muestra acá.'
-            : `Hay ${turnosEnDiasOcultos} turnos el sábado o domingo que no se muestran acá.`}{' '}
-          Podés verlos en la lista de abajo.
+          {textoAvisoFinDeSemana(turnosEnDiasOcultos, hayFiltros)}
         </p>
       )}
     </div>
