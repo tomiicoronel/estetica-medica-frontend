@@ -232,3 +232,53 @@
     font-size: 16px;
   }
 }
+
+/* Taller hour rows in the Turnos agenda so short appointments have room.
+   The library hardcodes `min-h-[60px]` on its time-grid hour cells (the only use of that class). */
+.agenda-turnos .min-h-\[60px\] {
+  min-height: 84px;
+}
+
+/* Overlapping appointments share the column width side by side (Google Calendar style)
+   instead of the library's narrow cascade. The library positions each event wrapper with
+   inline `left`/`width`, so `!important` is the only way to override it without forking it.
+   Scoped to `.agenda-turnos` and to the timed-events layer of the week/day grids.
+   Structure: layer > div.absolute (wrapper) > div (library) > our [data-cols] element.
+   `data-col`/`data-cols` come from `asignarColumnasEventos`; with more than 4 columns or
+   without the attributes, the library layout stays in place. */
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="2"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(50% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="2"][data-col="1"]) {
+  left: 50% !important;
+  width: calc(50% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="1"]) {
+  left: 33.3333% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="2"]) {
+  left: 66.6667% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="1"]) {
+  left: 25% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="2"]) {
+  left: 50% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="3"]) {
+  left: 75% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}

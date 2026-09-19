@@ -1,5 +1,7 @@
 import type { CalendarEvent, CellInfo } from '@ilamy/calendar'
 import dayjs, { type Dayjs } from 'dayjs'
+import 'dayjs/locale/es'
+import { asignarColumnas, type Columna } from './agendaDia'
 import type {
   BloqueoAgendaResponse,
   ActualizarTurnoRequest,
@@ -163,4 +165,88 @@ export function textosEvento(event: CalendarEvent): TextosEvento {
   }
 
   return { titulo: event.title, detalle: rango, tachado: false }
+}
+
+const MINUTOS_EVENTO_CORTO = 20
+
+/** True for timed, single-day events of 1 to 20 minutes, which get a compact one-line layout. */
+export function esEventoCorto(event: Pick<CalendarEvent, 'start' | 'end' | 'allDay'>): boolean {
+  if (event.allDay || !event.start.isSame(event.end, 'day')) return false
+  const minutos = event.end.diff(event.start, 'minute', true)
+  return minutos > 0 && minutos <= MINUTOS_EVENTO_CORTO
+}
+
+function esFinDeSemana(fecha: Dayjs): boolean {
+  return fecha.day() === 0 || fecha.day() === 6
+}
+
+/**
+ * Range label for the agenda header, skipping Saturday/Sunday at both ends because
+ * the agenda only shows Monday to Friday. A single day is shown as a long date.
+ */
+export function etiquetaRango(inicio: Dayjs, fin: Dayjs): string {
+  if (inicio.isSame(fin, 'day')) return inicio.locale('es').format('D [de] MMMM [de] YYYY')
+
+  let primero = inicio.startOf('day')
+  let ultimo = fin.startOf('day')
+  while (esFinDeSemana(primero) && primero.isBefore(ultimo)) primero = primero.add(1, 'day')
+  while (esFinDeSemana(ultimo) && ultimo.isAfter(primero)) ultimo = ultimo.subtract(1, 'day')
+
+  return `${primero.locale('es').format('D MMM')} – ${ultimo.locale('es').format('D MMM YYYY')}`
+}
+
+/** Number of appointments inside `rango` that fall on a Saturday or Sunday (hidden days). */
+export function contarTurnosEnDiasOcultos(
+  turnos: { fechaHora: LocalDateTime }[],
+  rango: RangoVisible,
+): number {
+  return turnos.filter(({ fechaHora }) => {
+    const fecha = dayjs(fechaHora)
+    return esFinDeSemana(fecha) && !fecha.isBefore(rango.inicio) && !fecha.isAfter(rango.fin)
+  }).length
+}
+
+/** Matches the `app` breakpoint (`--breakpoint-app`) in `index.css`. */
+export const ANCHO_APP_PX = 860
+export const CONSULTA_PANTALLA_CHICA = `(max-width: ${ANCHO_APP_PX - 1}px)`
+
+/** Agenda view to open with: a single day on small screens, the week otherwise. */
+export function vistaInicial(anchoPx: number): 'day' | 'week' {
+  return anchoPx < ANCHO_APP_PX ? 'day' : 'week'
+}
+
+/** Initial agenda view for the current viewport; falls back to the week outside a browser. */
+export function vistaInicialDelNavegador(): 'day' | 'week' {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'week'
+  return window.matchMedia(CONSULTA_PANTALLA_CHICA).matches ? 'day' : 'week'
+}
+
+/** Blocks shorter than this still occupy this much room when deciding overlaps (matches their minimum visible height). */
+const MINUTOS_MINIMOS_BLOQUE = 15
+
+/**
+ * Side-by-side column for every timed, single-day event, computed per calendar day
+ * (appointments and blocked slots share the same columns). All-day and multi-day
+ * events are left out so they keep the library's own layout.
+ */
+export function asignarColumnasEventos(
+  events: Pick<CalendarEvent, 'id' | 'start' | 'end' | 'allDay'>[],
+): Map<CalendarEvent['id'], Columna> {
+  const porDia = new Map<string, typeof events>()
+  for (const event of events) {
+    if (event.allDay || !event.start.isSame(event.end, 'day')) continue
+    const dia = event.start.format('YYYY-MM-DD')
+    porDia.set(dia, [...(porDia.get(dia) ?? []), event])
+  }
+
+  const resultado = new Map<CalendarEvent['id'], Columna>()
+  for (const delDia of porDia.values()) {
+    const bloques = delDia.map((event) => {
+      const inicio = event.start.hour() * 60 + event.start.minute()
+      const fin = event.end.hour() * 60 + event.end.minute()
+      return { inicio, fin: Math.max(fin, inicio + MINUTOS_MINIMOS_BLOQUE) }
+    })
+    asignarColumnas(bloques).forEach((columna, i) => resultado.set(delDia[i].id, columna))
+  }
+  return resultado
 }

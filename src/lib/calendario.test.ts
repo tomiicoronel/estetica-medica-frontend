@@ -3,13 +3,18 @@ import { describe, expect, it } from 'vitest'
 import type { BloqueoAgendaResponse, EstadoTurno, TurnoResponse } from '../types/api'
 import {
   appointmentUpdateFromEvent,
+  asignarColumnasEventos,
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   crearRangoSemanal,
+  contarTurnosEnDiasOcultos,
+  esEventoCorto,
+  etiquetaRango,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
   turnoEsEditable,
+  vistaInicial,
 } from './calendario'
 
 const TURNO_BASE: TurnoResponse = {
@@ -212,5 +217,179 @@ describe('textosEvento', () => {
       detalle: '12:00 – 13:30',
       tachado: false,
     })
+  })
+})
+
+describe('esEventoCorto', () => {
+  const evento = (inicio: string, fin: string, allDay = false) => ({
+    id: 'e',
+    title: 'e',
+    start: dayjs(inicio),
+    end: dayjs(fin),
+    allDay,
+  })
+
+  it.each([
+    ['15 minutes', '2026-05-04T10:15:00', true],
+    ['20 minutes', '2026-05-04T10:20:00', true],
+    ['21 minutes', '2026-05-04T10:21:00', false],
+    ['30 minutes', '2026-05-04T10:30:00', false],
+    ['60 minutes', '2026-05-04T11:00:00', false],
+  ])('classifies %s', (_label, fin, esperado) => {
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', fin))).toBe(esperado)
+  })
+
+  it('treats zero or negative durations as not short', () => {
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', '2026-05-04T10:00:00'))).toBe(false)
+    expect(esEventoCorto(evento('2026-05-04T10:00:00', '2026-05-04T09:50:00'))).toBe(false)
+  })
+
+  it('treats all-day and multi-day events as not short', () => {
+    expect(esEventoCorto(evento('2026-05-04T00:00:00', '2026-05-04T00:10:00', true))).toBe(false)
+    expect(esEventoCorto(evento('2026-05-04T23:50:00', '2026-05-05T00:05:00'))).toBe(false)
+  })
+})
+
+describe('etiquetaRango', () => {
+  it('shows the first to last visible day when the range ends on the weekend', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-21T00:00:00'), dayjs('2026-09-27T23:59:59'))
+    expect(etiqueta).toBe('21 sep – 25 sep 2026')
+  })
+
+  it('keeps a single day as a long date', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-23T00:00:00'), dayjs('2026-09-23T23:59:59'))
+    expect(etiqueta).toBe('23 de septiembre de 2026')
+  })
+
+  it('keeps a weekend-only single day untouched', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-26T00:00:00'), dayjs('2026-09-26T23:59:59'))
+    expect(etiqueta).toBe('26 de septiembre de 2026')
+  })
+
+  it('trims weekend days at both ends of a longer range', () => {
+    const etiqueta = etiquetaRango(dayjs('2026-09-26T00:00:00'), dayjs('2026-10-11T23:59:59'))
+    expect(etiqueta).toBe('28 sep – 9 oct 2026')
+  })
+})
+
+describe('contarTurnosEnDiasOcultos', () => {
+  const rango = { inicio: dayjs('2026-09-21T00:00:00'), fin: dayjs('2026-09-27T23:59:59') }
+
+  it('counts appointments on Saturday and Sunday of the range', () => {
+    const turnos = [
+      { fechaHora: '2026-09-21T10:00:00' },
+      { fechaHora: '2026-09-26T10:00:00' },
+      { fechaHora: '2026-09-27T18:30:00' },
+    ]
+    expect(contarTurnosEnDiasOcultos(turnos, rango)).toBe(2)
+  })
+
+  it('ignores weekend appointments outside the range', () => {
+    const turnos = [{ fechaHora: '2026-09-19T10:00:00' }, { fechaHora: '2026-10-03T10:00:00' }]
+    expect(contarTurnosEnDiasOcultos(turnos, rango)).toBe(0)
+  })
+
+  it('returns 0 when there are no appointments', () => {
+    expect(contarTurnosEnDiasOcultos([], rango)).toBe(0)
+  })
+})
+
+describe('vistaInicial', () => {
+  it('starts in day view below the app breakpoint', () => {
+    expect(vistaInicial(390)).toBe('day')
+    expect(vistaInicial(859)).toBe('day')
+  })
+
+  it('starts in week view from the app breakpoint', () => {
+    expect(vistaInicial(860)).toBe('week')
+    expect(vistaInicial(1440)).toBe('week')
+  })
+})
+
+describe('asignarColumnasEventos', () => {
+  const ev = (id: string, inicio: string, fin: string, allDay = false) => ({
+    id,
+    title: id,
+    start: dayjs(inicio),
+    end: dayjs(fin),
+    allDay,
+  })
+
+  it('gives a lone event the full width', () => {
+    const mapa = asignarColumnasEventos([ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00')])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('splits two overlapping events into two columns', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T09:30:00', '2026-09-21T10:30:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 2 })
+    expect(mapa.get('b')).toEqual({ columna: 1, total: 2 })
+  })
+
+  it('shares one cluster across a chain of overlaps', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T09:30:00', '2026-09-21T11:00:00'),
+      ev('c', '2026-09-21T10:15:00', '2026-09-21T11:30:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 2 })
+    expect(mapa.get('b')).toEqual({ columna: 1, total: 2 })
+    expect(mapa.get('c')).toEqual({ columna: 0, total: 2 })
+  })
+
+  it('does not treat back-to-back events as overlapping', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-21T10:00:00', '2026-09-21T11:00:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+    expect(mapa.get('b')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('lays out each calendar day independently', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+      ev('b', '2026-09-22T09:00:00', '2026-09-22T10:00:00'),
+    ])
+
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+    expect(mapa.get('b')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('does not depend on the input order', () => {
+    const a = ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00')
+    const b = ev('b', '2026-09-21T09:30:00', '2026-09-21T10:30:00')
+
+    expect(asignarColumnasEventos([b, a]).get('a')).toEqual({ columna: 0, total: 2 })
+    expect(asignarColumnasEventos([b, a]).get('b')).toEqual({ columna: 1, total: 2 })
+  })
+
+  it('skips all-day and multi-day events so they keep the library layout', () => {
+    const mapa = asignarColumnasEventos([
+      ev('todo', '2026-09-21T00:00:00', '2026-09-21T23:59:59', true),
+      ev('largo', '2026-09-21T22:00:00', '2026-09-22T02:00:00'),
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T10:00:00'),
+    ])
+
+    expect(mapa.has('todo')).toBe(false)
+    expect(mapa.has('largo')).toBe(false)
+    expect(mapa.get('a')).toEqual({ columna: 0, total: 1 })
+  })
+
+  it('treats a zero-length event as a short block that can still overlap', () => {
+    const mapa = asignarColumnasEventos([
+      ev('a', '2026-09-21T09:00:00', '2026-09-21T09:00:00'),
+      ev('b', '2026-09-21T09:05:00', '2026-09-21T10:00:00'),
+    ])
+
+    expect(mapa.get('a')?.total).toBe(2)
+    expect(mapa.get('b')?.total).toBe(2)
   })
 })

@@ -29,13 +29,18 @@ import { formatearFecha } from '../../lib/fecha'
 import { ETIQUETA_ESTADO, formatearHora, formatearMonto } from '../../lib/formato'
 import {
   appointmentUpdateFromEvent,
+  asignarColumnasEventos,
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
   COLORES_ESTADO,
+  contarTurnosEnDiasOcultos,
   crearRangoSemanal,
+  esEventoCorto,
+  etiquetaRango,
   serializarRangoVisible,
   textosEvento,
   turnoACalendarEvent,
+  vistaInicialDelNavegador,
   type CalendarDraft,
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
@@ -76,6 +81,8 @@ export function TurnosPage() {
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(dayjs()))
+  // Decided once on mount so a resize never yanks the user out of the view they picked.
+  const [vistaInicial] = useState(vistaInicialDelNavegador)
   const queryClient = useQueryClient()
 
   const openCreation = useCallback((selection?: Pick<CellInfo, 'start' | 'end'>) => {
@@ -121,14 +128,23 @@ export function TurnosPage() {
   const nombreDe = (turno: TurnoResponse) =>
     nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'
 
-  const eventos = useMemo(
-    () => [
+  const eventos = useMemo(() => {
+    const todos = [
       ...(agenda.data ?? []).map((turno) =>
         turnoACalendarEvent(turno, nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'),
       ),
       ...(bloqueos.data ?? []).map(bloqueoACalendarEvent),
-    ],
-    [agenda.data, bloqueos.data, nombrePorPaciente],
+    ]
+    const columnas = asignarColumnasEventos(todos)
+    return todos.map((event) => {
+      const columna = columnas.get(event.id)
+      return columna ? { ...event, data: { ...event.data, ...columna } } : event
+    })
+  }, [agenda.data, bloqueos.data, nombrePorPaciente])
+  // Saturday and Sunday are hidden in the grid; count them so nothing disappears silently.
+  const turnosEnDiasOcultos = useMemo(
+    () => contarTurnosEnDiasOcultos(agenda.data ?? [], rangoAgenda),
+    [agenda.data, rangoAgenda],
   )
   const errorAgenda = agenda.error ?? bloqueos.error ?? pacientes.error
 
@@ -215,12 +231,13 @@ export function TurnosPage() {
               them without touching the global token. */}
           <div
             style={{ '--border': 'var(--color-sand-200)' } as CSSProperties}
-            className="[&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
+            className="agenda-turnos [&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
           >
             <IlamyCalendar
               events={eventos}
-              initialView="week"
+              initialView={vistaInicial}
               firstDayOfWeek="monday"
+              hiddenDays={['saturday', 'sunday']}
               locale="es"
               translations={TRADUCCIONES}
               timeFormat="24-hour"
@@ -243,7 +260,7 @@ export function TurnosPage() {
               stickyViewHeader
               hideExportButton
               plugins={[dragToCreate]}
-              headerComponent={<CabeceraAgenda />}
+              headerComponent={<CabeceraAgenda turnosEnDiasOcultos={turnosEnDiasOcultos} />}
               renderEvent={(event) => <EventoAgenda event={event} />}
               onDateChange={(_fechaActual, rango) =>
                 setRangoAgenda({ inicio: rango.start, fin: rango.end })
@@ -422,14 +439,10 @@ const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 
 const BOTON_NAVEGACION =
   'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
 
-function CabeceraAgenda() {
+function CabeceraAgenda({ turnosEnDiasOcultos }: { turnosEnDiasOcultos: number }) {
   const { currentRange, nextPeriod, prevPeriod, setView, today, view } =
     useIlamyCalendarContext()
-  const inicio = currentRange.start.locale('es')
-  const fin = currentRange.end.locale('es')
-  const titulo = inicio.isSame(fin, 'day')
-    ? inicio.format('D [de] MMMM [de] YYYY')
-    : `${inicio.format('D MMM')} – ${fin.format('D MMM YYYY')}`
+  const titulo = etiquetaRango(currentRange.start, currentRange.end)
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-1 pb-3">
@@ -492,6 +505,15 @@ function CabeceraAgenda() {
           </button>
         ))}
       </div>
+
+      {turnosEnDiasOcultos > 0 && view !== 'day' && (
+        <p className="basis-full text-[12.5px] text-sand-700">
+          {turnosEnDiasOcultos === 1
+            ? 'Hay 1 turno el sábado o domingo que no se muestra acá.'
+            : `Hay ${turnosEnDiasOcultos} turnos el sábado o domingo que no se muestran acá.`}{' '}
+          Podés verlos en la lista de abajo.
+        </p>
+      )}
     </div>
   )
 }
@@ -499,20 +521,33 @@ function CabeceraAgenda() {
 function EventoAgenda({ event }: { event: CalendarEvent }) {
   const { titulo, detalle, tachado } = textosEvento(event)
   const linea = typeof event.data?.linea === 'string' ? event.data.linea : undefined
+  const corto = esEventoCorto(event)
+  const { columna, total } = event.data ?? {}
+  const estiloTitulo = tachado ? 'line-through' : ''
 
   return (
     <div
-      className="h-full min-w-0 rounded-md border-l-[3px] px-1.5 py-0.5 text-left leading-tight"
+      data-col={typeof columna === 'number' ? columna : undefined}
+      data-cols={typeof total === 'number' ? total : undefined}
+      className={`h-full min-w-0 overflow-hidden rounded-md border-l-[3px] px-2 text-left ${
+        corto ? 'flex items-center py-0 leading-none' : 'py-1 leading-tight'
+      }`}
       style={{
         backgroundColor: event.backgroundColor,
         color: event.color,
         borderLeftColor: linea ?? 'transparent',
       }}
     >
-      <div className={`truncate text-[12.5px] font-semibold ${tachado ? 'line-through' : ''}`}>
-        {titulo}
-      </div>
-      <div className="truncate text-[11px] opacity-80">{detalle}</div>
+      {corto ? (
+        <div className={`min-w-0 truncate text-[11px] font-semibold ${estiloTitulo}`}>
+          <span className="opacity-80">{event.start.format('HH:mm')}</span> {titulo}
+        </div>
+      ) : (
+        <>
+          <div className={`truncate text-[12.5px] font-semibold ${estiloTitulo}`}>{titulo}</div>
+          <div className="truncate text-[11px] opacity-80">{detalle}</div>
+        </>
+      )}
     </div>
   )
 }
