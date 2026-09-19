@@ -412,7 +412,7 @@ const TRADUCCIONES = {
   day: 'Día',
   month: 'Mes',
   year: 'Año',
-  allDay: 'Todo el día',
+  allDay: 'Todo día',
   more: 'más',
   previous: 'Anterior',
   next: 'Siguiente',

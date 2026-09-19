@@ -134,7 +134,7 @@ function Stat({
   tono: TonoStat
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-sand-200 bg-sand-50 p-4 app:gap-3.5 app:p-5">
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-sand-200 bg-sand-50 p-4 app:flex-row app:gap-3.5 app:p-5">
       <div
         aria-hidden="true"
         className={`flex size-11 flex-none items-center justify-center rounded-xl border ${TONO_ICONO[tono]}`}
