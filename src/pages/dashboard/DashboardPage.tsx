@@ -4,15 +4,14 @@ import { getDashboard, getResumenDiarioPagos } from '../../api/endpoints/dashboa
 import { listarPacientes } from '../../api/endpoints/pacientes'
 import { getResumenPagosTurno, getTurnosProximos } from '../../api/endpoints/turnos'
 import { PageHeader } from '../../components/PageHeader'
-import { BadgeEstadoTurno } from '../../components/ui/Badge'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import {
   ETIQUETA_METODO,
   aFechaISO,
   formatearFechaLarga,
-  formatearHora,
   formatearMonto,
 } from '../../lib/formato'
+import { AgendaDeHoy } from './AgendaDeHoy'
 import type { MetodoPago, TurnoResponse } from '../../types/api'
 
 export function DashboardPage() {
@@ -57,21 +56,25 @@ export function DashboardPage() {
             <div className="grid grid-cols-2 gap-2.5 app:grid-cols-4 app:gap-[14px]">
               <Stat
                 label="Turnos de hoy"
+                tono="confirmado"
                 valor={String(dashboard.data.cantidadTurnos)}
                 nota="Agendados para la fecha"
               />
               <Stat
                 label="Realizados"
+                tono="realizado"
                 valor={String(dashboard.data.cantidadTurnosRealizados)}
                 nota="De los turnos de hoy"
               />
               <Stat
                 label="Pacientes activos"
+                tono="pendiente"
                 valor={String(dashboard.data.pacientesActivos)}
                 nota="Total, no depende del día"
               />
               <Stat
                 label="Recaudado hoy"
+                tono="sage"
                 valor={formatearMonto(dashboard.data.totalRecaudado)}
                 nota="Pagos registrados hoy"
               />
@@ -102,12 +105,59 @@ export function DashboardPage() {
   )
 }
 
-function Stat({ label, valor, nota }: { label: string; valor: string; nota: string }) {
+type TonoStat = 'confirmado' | 'realizado' | 'pendiente' | 'sage'
+
+const TONO_ICONO: Record<TonoStat, string> = {
+  confirmado: 'border-estado-confirmado-linea bg-estado-confirmado-bg text-estado-confirmado-fg',
+  realizado: 'border-estado-realizado-linea bg-estado-realizado-bg text-estado-realizado-fg',
+  pendiente: 'border-estado-pendiente-linea bg-estado-pendiente-bg text-estado-pendiente-fg',
+  sage: 'border-sage-300 bg-sage-100 text-sage-800',
+}
+
+/** 24x24 stroke paths for the stat glyphs. */
+const GLIFO: Record<TonoStat, string> = {
+  confirmado: 'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z',
+  realizado: 'm5 12.5 4.5 4.5L19 7.5',
+  pendiente: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-3A3.5 3.5 0 0 0 6 17.5V19M11 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  sage: 'M12 4v16M16 8H10.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H8',
+}
+
+function Stat({
+  label,
+  valor,
+  nota,
+  tono,
+}: {
+  label: string
+  valor: string
+  nota: string
+  tono: TonoStat
+}) {
   return (
-    <div className="flex flex-col gap-2.5 rounded-2xl border border-sand-200 bg-sand-50 p-5">
-      <div className="text-[12.5px] font-medium text-sand-700">{label}</div>
-      <div className="text-[30px] font-semibold tracking-[-0.03em] text-sage-900">{valor}</div>
-      <div className="text-xs text-sage-500">{nota}</div>
+    <div className="flex items-start gap-3 rounded-2xl border border-sand-200 bg-sand-50 p-4 app:gap-3.5 app:p-5">
+      <div
+        aria-hidden="true"
+        className={`flex size-11 flex-none items-center justify-center rounded-xl border ${TONO_ICONO[tono]}`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="size-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d={GLIFO[tono]} />
+        </svg>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="text-[12.5px] font-medium text-sand-700">{label}</div>
+        <div className="truncate text-[28px] font-semibold leading-none tracking-[-0.03em] text-sage-900">
+          {valor}
+        </div>
+        <div className="text-xs text-sage-500">{nota}</div>
+      </div>
     </div>
   )
 }
@@ -152,30 +202,7 @@ function TurnosDeHoy({
       )}
 
       {turnos && turnos.length > 0 && (
-        <div className="flex flex-col">
-          {turnos.map((turno) => (
-            <div
-              key={turno.id}
-              className="grid grid-cols-[56px_1fr_auto] items-center gap-3 border-b border-sand-200/60 px-5 py-[15px] last:border-b-0 app:grid-cols-[66px_1fr_auto_auto] app:gap-4"
-            >
-              <span className="text-[15px] font-semibold text-sage-800">
-                {formatearHora(turno.fechaHora)}
-              </span>
-              <span className="flex min-w-0 flex-col gap-[3px]">
-                <span className="truncate text-sm font-medium">
-                  {nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'}
-                </span>
-                <span className="truncate text-[12.5px] text-sand-700">
-                  {turno.servicios.map((s) => s.nombre).join(', ')}
-                </span>
-              </span>
-              <BadgeEstadoTurno estado={turno.estado} />
-              <span className="col-start-2 text-sm font-semibold text-sage-800 app:col-start-auto app:text-right">
-                {formatearMonto(turno.montoTotal)}
-              </span>
-            </div>
-          ))}
-        </div>
+        <AgendaDeHoy turnos={turnos} nombrePorPaciente={nombrePorPaciente} />
       )}
 
       {turnos && turnos.length === 0 && (
