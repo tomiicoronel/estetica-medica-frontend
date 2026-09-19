@@ -21,25 +21,23 @@ export interface RangoTurnosSerializado {
 interface ColoresEvento {
   color: string
   backgroundColor: string
+  /** Accent color, e.g. for the left border of an appointment card. */
+  linea: string
 }
 
-const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
-  PENDIENTE: {
-    color: 'var(--color-sand-800)',
-    backgroundColor: 'var(--color-sand-200)',
-  },
-  CONFIRMADO: {
-    color: 'var(--color-sage-700)',
-    backgroundColor: 'var(--color-sage-100)',
-  },
-  REALIZADO: {
-    color: 'var(--color-sage-900)',
-    backgroundColor: 'var(--color-sage-300)',
-  },
-  CANCELADO: {
-    color: 'var(--color-clay-700)',
-    backgroundColor: 'var(--color-clay-100)',
-  },
+function coloresDeEstado(estado: string): ColoresEvento {
+  return {
+    color: `var(--color-estado-${estado}-fg)`,
+    backgroundColor: `var(--color-estado-${estado}-bg)`,
+    linea: `var(--color-estado-${estado}-linea)`,
+  }
+}
+
+export const COLORES_ESTADO: Record<EstadoTurno, ColoresEvento> = {
+  PENDIENTE: coloresDeEstado('pendiente'),
+  CONFIRMADO: coloresDeEstado('confirmado'),
+  REALIZADO: coloresDeEstado('realizado'),
+  CANCELADO: coloresDeEstado('cancelado'),
 }
 
 const FORMATO_LOCAL_DATE_TIME = 'YYYY-MM-DDTHH:mm:ss'
@@ -98,14 +96,17 @@ export function turnoACalendarEvent(
   turno: TurnoResponse,
   nombrePaciente = 'Paciente',
 ): CalendarEvent {
-  const servicios = turno.servicios.map(({ nombre }) => nombre).filter(Boolean).join(', ')
+  const servicios =
+    turno.servicios.map(({ nombre }) => nombre).filter(Boolean).join(', ') || 'Sin servicio'
+  const { color, backgroundColor, linea } = COLORES_ESTADO[turno.estado]
 
   return {
     id: `turno-${turno.id}`,
-    title: `${nombrePaciente} · ${servicios || 'Sin servicio'}`,
+    title: `${nombrePaciente} · ${servicios}`,
     start: dayjs(turno.fechaHora),
     end: dayjs(turno.fechaHoraFin),
-    ...COLORES_ESTADO[turno.estado],
+    color,
+    backgroundColor,
     description: turno.observaciones,
     data: {
       tipo: 'turno',
@@ -113,6 +114,9 @@ export function turnoACalendarEvent(
       pacienteId: turno.pacienteId,
       estado: turno.estado,
       editable: turnoEsEditable(turno.estado),
+      linea,
+      paciente: nombrePaciente,
+      servicios,
     },
   }
 }
@@ -135,4 +139,28 @@ export function bloqueoACalendarEvent(bloqueo: BloqueoAgendaResponse): CalendarE
       editable: true,
     },
   }
+}
+
+export interface TextosEvento {
+  /** First line: patient name (or the block title). */
+  titulo: string
+  /** Second line: `HH:MM – HH:MM`, followed by the services for appointments. */
+  detalle: string
+  /** True when the title should be struck through (cancelled appointments). */
+  tachado: boolean
+}
+
+export function textosEvento(event: CalendarEvent): TextosEvento {
+  const rango = `${event.start.format('HH:mm')} – ${event.end.format('HH:mm')}`
+  const { tipo, paciente, servicios, estado } = event.data ?? {}
+
+  if (tipo === 'turno' && typeof paciente === 'string') {
+    return {
+      titulo: paciente,
+      detalle: typeof servicios === 'string' && servicios ? `${rango} · ${servicios}` : rango,
+      tachado: estado === 'CANCELADO',
+    }
+  }
+
+  return { titulo: event.title, detalle: rango, tachado: false }
 }

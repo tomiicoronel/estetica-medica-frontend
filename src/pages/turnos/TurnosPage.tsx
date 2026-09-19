@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  defaultTranslations,
   IlamyCalendar,
   useIlamyCalendarContext,
   type CalendarEvent,
@@ -25,13 +26,15 @@ import { CampoFecha } from '../../components/ui/CampoFecha'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
-import { formatearHora, formatearMonto } from '../../lib/formato'
+import { ETIQUETA_ESTADO, formatearHora, formatearMonto } from '../../lib/formato'
 import {
   appointmentUpdateFromEvent,
   bloqueoACalendarEvent,
   calendarDraftFromSelection,
+  COLORES_ESTADO,
   crearRangoSemanal,
   serializarRangoVisible,
+  textosEvento,
   turnoACalendarEvent,
   type CalendarDraft,
 } from '../../lib/calendario'
@@ -208,12 +211,18 @@ export function TurnosPage() {
           {errorAgenda && <ErrorDeCarga error={errorAgenda} />}
           {(agenda.isPending || bloqueos.isPending || pacientes.isPending) && <Skeleton filas={4} />}
 
-          <div className="h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-2xl border border-sand-200 bg-sand-50 p-2 app:p-3">
+          {/* The library draws grid lines with `bg-border`; overriding --border here softens
+              them without touching the global token. */}
+          <div
+            style={{ '--border': 'var(--color-sand-200)' } as CSSProperties}
+            className="[&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
+          >
             <IlamyCalendar
               events={eventos}
               initialView="week"
               firstDayOfWeek="monday"
               locale="es"
+              translations={TRADUCCIONES}
               timeFormat="24-hour"
               businessHours={{
                 daysOfWeek: [
@@ -396,6 +405,23 @@ export function TurnosPage() {
   )
 }
 
+const TRADUCCIONES = {
+  ...defaultTranslations,
+  today: 'Hoy',
+  week: 'Semana',
+  day: 'Día',
+  month: 'Mes',
+  year: 'Año',
+  allDay: 'Todo el día',
+  more: 'más',
+  previous: 'Anterior',
+  next: 'Siguiente',
+}
+
+const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 'CANCELADO']
+const BOTON_NAVEGACION =
+  'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
+
 function CabeceraAgenda() {
   const { currentRange, nextPeriod, prevPeriod, setView, today, view } =
     useIlamyCalendarContext()
@@ -406,14 +432,14 @@ function CabeceraAgenda() {
     : `${inicio.format('D MMM')} – ${fin.format('D MMM YYYY')}`
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 p-1 app:flex-row app:items-center app:justify-between">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-1 pb-3">
       <div className="flex min-w-0 items-center gap-2">
-        <div className="flex rounded-control border border-sand-200 bg-white">
+        <div className="flex overflow-hidden rounded-xl border border-sand-300 bg-white">
           <button
             type="button"
             aria-label="Período anterior"
             onClick={prevPeriod}
-            className="min-h-11 px-3 text-lg text-sage-800 hover:bg-sage-50"
+            className={BOTON_NAVEGACION}
           >
             ‹
           </button>
@@ -421,27 +447,44 @@ function CabeceraAgenda() {
             type="button"
             aria-label="Período siguiente"
             onClick={nextPeriod}
-            className="min-h-11 border-l border-sand-200 px-3 text-lg text-sage-800 hover:bg-sage-50"
+            className={`${BOTON_NAVEGACION} border-l border-sand-300`}
           >
             ›
           </button>
         </div>
-        <Button type="button" variante="secundario" onClick={today} className="min-h-11 py-2">
+        <button
+          type="button"
+          onClick={today}
+          className="min-h-11 rounded-xl border border-sand-300 bg-white px-3.5 text-[13px] font-semibold text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9"
+        >
           Hoy
-        </Button>
+        </button>
         <span className="min-w-0 truncate text-sm font-semibold capitalize text-sage-900 app:text-base">
           {titulo}
         </span>
       </div>
 
-      <div className="flex self-start rounded-control bg-sand-100 p-1 app:self-auto">
+      <ul aria-label="Estados" className="ml-auto hidden items-center gap-4 app:flex">
+        {ESTADOS_LEYENDA.map((estado) => (
+          <li key={estado} className="flex items-center gap-1.5 text-xs text-sand-700">
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-full"
+              style={{ backgroundColor: COLORES_ESTADO[estado].linea }}
+            />
+            {ETIQUETA_ESTADO[estado]}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex rounded-xl bg-sand-100 p-1 max-app:ml-auto">
         {VISTAS.map(({ clave, label }) => (
           <button
             key={clave}
             type="button"
             aria-pressed={view === clave}
             onClick={() => setView(clave)}
-            className={`min-h-10 rounded-[9px] px-3 text-xs font-semibold transition-colors ${
+            className={`min-h-10 rounded-[9px] px-3 text-xs font-semibold transition-colors app:min-h-8 ${
               view === clave ? 'bg-white text-sage-900 shadow-sm' : 'text-sand-700 hover:bg-sand-50'
             }`}
           >
@@ -454,12 +497,22 @@ function CabeceraAgenda() {
 }
 
 function EventoAgenda({ event }: { event: CalendarEvent }) {
+  const { titulo, detalle, tachado } = textosEvento(event)
+  const linea = typeof event.data?.linea === 'string' ? event.data.linea : undefined
+
   return (
-    <div className="min-w-0 px-1 py-0.5 text-left leading-tight">
-      <div className="truncate text-[10px] font-semibold">
-        {event.start.format('HH:mm')}–{event.end.format('HH:mm')}
+    <div
+      className="h-full min-w-0 rounded-md border-l-[3px] px-1.5 py-0.5 text-left leading-tight"
+      style={{
+        backgroundColor: event.backgroundColor,
+        color: event.color,
+        borderLeftColor: linea ?? 'transparent',
+      }}
+    >
+      <div className={`truncate text-[12.5px] font-semibold ${tachado ? 'line-through' : ''}`}>
+        {titulo}
       </div>
-      <div className="truncate text-[11px]">{event.title}</div>
+      <div className="truncate text-[11px] opacity-80">{detalle}</div>
     </div>
   )
 }

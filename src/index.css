@@ -67,6 +67,28 @@
   --radius-control: 0.75rem;
 }
 
+/* `static` evita que Tailwind v4 pode los tokens que solo se usan vía `var()`
+   inline (la agenda y las leyendas). */
+@theme static {
+  /* Estados del turno — un set único de bg/fg/linea por estado, consumido por
+     el Badge (utilidades `bg-estado-*`) y por la agenda (`var(--color-estado-*)`).
+     Espejan los tonos estándar de Tailwind que el Badge ya usaba (amber, sky,
+     emerald, rose: 100 / 800 / 400), con hex literales para que existan siempre
+     en runtime. No están en paleta.md porque son semánticos, no de marca. */
+  --color-estado-pendiente-bg: #fef3c7;
+  --color-estado-pendiente-fg: #92400e;
+  --color-estado-pendiente-linea: #fbbf24;
+  --color-estado-confirmado-bg: #e0f2fe;
+  --color-estado-confirmado-fg: #075985;
+  --color-estado-confirmado-linea: #38bdf8;
+  --color-estado-realizado-bg: #d1fae5;
+  --color-estado-realizado-fg: #065f46;
+  --color-estado-realizado-linea: #34d399;
+  --color-estado-cancelado-bg: #ffe4e6;
+  --color-estado-cancelado-fg: #9f1239;
+  --color-estado-cancelado-linea: #fb7185;
+}
+
 /* Bridge the calendar's shadcn utility tokens into the existing app palette. */
 @theme inline {
   --color-background: var(--background);
