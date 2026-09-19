@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  defaultTranslations,
   IlamyCalendar,
   useIlamyCalendarContext,
   type CalendarEvent,
@@ -214,13 +215,14 @@ export function TurnosPage() {
               them without touching the global token. */}
           <div
             style={{ '--border': 'var(--color-sand-200)' } as CSSProperties}
-            className="h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
+            className="[&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
           >
             <IlamyCalendar
               events={eventos}
               initialView="week"
               firstDayOfWeek="monday"
               locale="es"
+              translations={TRADUCCIONES}
               timeFormat="24-hour"
               businessHours={{
                 daysOfWeek: [
@@ -403,6 +405,19 @@ export function TurnosPage() {
   )
 }
 
+const TRADUCCIONES = {
+  ...defaultTranslations,
+  today: 'Hoy',
+  week: 'Semana',
+  day: 'Día',
+  month: 'Mes',
+  year: 'Año',
+  allDay: 'Todo el día',
+  more: 'más',
+  previous: 'Anterior',
+  next: 'Siguiente',
+}
+
 const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 'CANCELADO']
 const BOTON_NAVEGACION =
   'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
@@ -488,7 +503,11 @@ function EventoAgenda({ event }: { event: CalendarEvent }) {
   return (
     <div
       className="h-full min-w-0 rounded-md border-l-[3px] px-1.5 py-0.5 text-left leading-tight"
-      style={{ borderLeftColor: linea ?? 'transparent' }}
+      style={{
+        backgroundColor: event.backgroundColor,
+        color: event.color,
+        borderLeftColor: linea ?? 'transparent',
+      }}
     >
       <div className={`truncate text-[12.5px] font-semibold ${tachado ? 'line-through' : ''}`}>
         {titulo}

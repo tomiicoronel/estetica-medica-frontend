@@ -54,6 +54,22 @@
   --color-mrs-severo-fg: #9a4a2c;
   --color-mrs-severo-linea: #9a4a2c;
 
+  --font-sans: Inter, system-ui, -apple-system, sans-serif;
+
+  /* El diseño cambia de sidebar a barra + bottom nav en 860px (`mob = vw < 860`).
+     No coincide con ningún breakpoint por defecto de Tailwind, así que va como
+     token propio: `app:` = desde 860px. */
+  --breakpoint-app: 860px;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  /* Radio de los controles (inputs, botones, chips) en todo el diseño: 12px. */
+  --radius-control: 0.75rem;
+}
+
+/* `static` evita que Tailwind v4 pode los tokens que solo se usan vía `var()`
+   inline (la agenda y las leyendas). */
+@theme static {
   /* Estados del turno — un set único de bg/fg/linea por estado, consumido por
      el Badge (utilidades `bg-estado-*`) y por la agenda (`var(--color-estado-*)`).
      Espejan los tonos estándar de Tailwind que el Badge ya usaba (amber, sky,
@@ -71,18 +87,6 @@
   --color-estado-cancelado-bg: #ffe4e6;
   --color-estado-cancelado-fg: #9f1239;
   --color-estado-cancelado-linea: #fb7185;
-
-  --font-sans: Inter, system-ui, -apple-system, sans-serif;
-
-  /* El diseño cambia de sidebar a barra + bottom nav en 860px (`mob = vw < 860`).
-     No coincide con ningún breakpoint por defecto de Tailwind, así que va como
-     token propio: `app:` = desde 860px. */
-  --breakpoint-app: 860px;
-
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
-  /* Radio de los controles (inputs, botones, chips) en todo el diseño: 12px. */
-  --radius-control: 0.75rem;
 }
 
 /* Bridge the calendar's shadcn utility tokens into the existing app palette. */
