@@ -239,6 +239,13 @@
   min-height: 84px;
 }
 
+/* The library uses z-20/z-21 for its sticky day header and hour gutter, the same level as the
+   PageHeader. Isolating the calendar makes every inner z-index local to it, so nothing inside
+   can ever be painted above the page header while the page scrolls. */
+.agenda-turnos {
+  isolation: isolate;
+}
+
 /* Overlapping appointments share the column width side by side (Google Calendar style)
    instead of the library's narrow cascade. The library positions each event wrapper with
    inline `left`/`width`, so `!important` is the only way to override it without forking it.
@@ -281,4 +288,29 @@
 .agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="3"]) {
   left: 75% !important;
   width: calc(25% - var(--spacing) * 2) !important;
+}
+
+/* Month view shows Monday to Friday only. The library's `hiddenDays` does not apply to the
+   month grid, and its event layer positions events with left%/width% that assume 7 equal
+   columns, so removing the Saturday/Sunday cells would misalign every event. Instead the
+   7-column geometry is kept and stretched to 140% (7/5) of the container, then clipped:
+   Monday to Friday fill 100% of the visible width and Saturday/Sunday fall outside it.
+   The `:has()` guard on the presence of the month header keeps week/day views untouched.
+   Multi-day events that cross into the clipped area are simply clipped. */
+.agenda-turnos:has([data-testid='month-header']) [data-testid='horizontal-grid-header'],
+.agenda-turnos:has([data-testid='month-header']) [data-testid='horizontal-grid-body'] {
+  overflow-x: clip;
+}
+
+.agenda-turnos:has([data-testid='month-header']) [data-testid='month-header'],
+.agenda-turnos:has([data-testid='month-header']) [data-testid^='horizontal-row-week'] {
+  /* Width only: the rows are `flex-1` in a column, and that must keep sharing the height. */
+  width: 140%;
+  max-width: none;
+}
+
+/* The header row lives inside a flex row (`horizontal-grid-header`), so without this the
+   flex item shrinks back to the container width and no longer lines up with the body. */
+.agenda-turnos:has([data-testid='month-header']) [data-testid='month-header'] {
+  flex: none;
 }

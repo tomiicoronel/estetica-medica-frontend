@@ -181,6 +181,22 @@ function esFinDeSemana(fecha: Dayjs): boolean {
 }
 
 /**
+ * Moves `fecha` one working day forward (`1`) or back (`-1`), skipping Saturday and Sunday:
+ * Friday -> Monday going forward, Monday -> Friday going back. A weekend input lands on the
+ * nearest working day in that direction.
+ */
+export function siguienteDiaHabil(fecha: Dayjs, direccion: 1 | -1): Dayjs {
+  let resultado = fecha.add(direccion, 'day')
+  while (esFinDeSemana(resultado)) resultado = resultado.add(direccion, 'day')
+  return resultado
+}
+
+/** The date the agenda should open on: today, or the next Monday when today is Saturday or Sunday. */
+export function diaHabilInicial(hoy: Dayjs): Dayjs {
+  return esFinDeSemana(hoy) ? siguienteDiaHabil(hoy, 1) : hoy
+}
+
+/**
  * Range label for the agenda header, skipping Saturday/Sunday at both ends because
  * the agenda only shows Monday to Friday. A single day is shown as a long date.
  */
@@ -195,6 +211,27 @@ export function etiquetaRango(inicio: Dayjs, fin: Dayjs): string {
   return `${primero.locale('es').format('D MMM')} – ${ultimo.locale('es').format('D MMM YYYY')}`
 }
 
+function capitalizar(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+/**
+ * Period label for the agenda header, already capitalized (no CSS `capitalize`, which would
+ * also capitalize the word "de"). `fecha` is the calendar's current date, so the month view
+ * shows the month the user is on and not the edges of the visible grid.
+ */
+export function etiquetaPeriodo(
+  vista: string,
+  fecha: Dayjs,
+  inicio: Dayjs,
+  fin: Dayjs,
+): string {
+  const f = fecha.locale('es')
+  if (vista === 'day') return capitalizar(f.format('dddd D [de] MMMM [de] YYYY'))
+  if (vista === 'month') return capitalizar(f.format('MMMM [de] YYYY'))
+  return etiquetaRango(inicio, fin).replace(/[a-záéíóúñ]{3,}(?= |$)/g, capitalizar)
+}
+
 /** Number of appointments inside `rango` that fall on a Saturday or Sunday (hidden days). */
 export function contarTurnosEnDiasOcultos(
   turnos: { fechaHora: LocalDateTime }[],
@@ -204,6 +241,21 @@ export function contarTurnosEnDiasOcultos(
     const fecha = dayjs(fechaHora)
     return esFinDeSemana(fecha) && !fecha.isBefore(rango.inicio) && !fecha.isAfter(rango.fin)
   }).length
+}
+
+/**
+ * Notice shown when appointments fall on the hidden Saturday/Sunday. The list below the agenda
+ * can be narrowed by status or date, so with active filters it tells the user to clear them.
+ */
+export function textoAvisoFinDeSemana(cantidad: number, hayFiltros: boolean): string {
+  const singular = cantidad === 1
+  const aviso = singular
+    ? `Hay 1 turno el sábado o domingo que no se muestra acá.`
+    : `Hay ${cantidad} turnos el sábado o domingo que no se muestran acá.`
+  const verlos = singular ? 'verlo' : 'verlos'
+  return hayFiltros
+    ? `${aviso} Quitá los filtros para ${verlos} en la lista de abajo.`
+    : `${aviso} Podés ${verlos} en la lista de abajo.`
 }
 
 /** Matches the `app` breakpoint (`--breakpoint-app`) in `index.css`. */
