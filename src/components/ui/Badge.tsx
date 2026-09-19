@@ -2,15 +2,15 @@ import type { EstadoTurno } from '../../types/api'
 import { ETIQUETA_ESTADO } from '../../lib/formato'
 
 /**
- * Colores de estado. paleta.md los define sobre la escala estándar de
- * Tailwind (amber/sky/emerald/rose), no sobre los tokens de marca: son
- * semánticos y tienen que leerse como tales.
+ * Colores de estado. Salen de los tokens `--color-estado-*` de index.css, que
+ * espejan la escala estándar de Tailwind (amber/sky/emerald/rose) y se
+ * comparten con la agenda: son semánticos y tienen que leerse como tales.
  */
 const ESTILO_ESTADO: Record<EstadoTurno, string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-800',
-  CONFIRMADO: 'bg-sky-100 text-sky-800',
-  REALIZADO: 'bg-emerald-100 text-emerald-800',
-  CANCELADO: 'bg-rose-100 text-rose-800',
+  PENDIENTE: 'bg-estado-pendiente-bg text-estado-pendiente-fg',
+  CONFIRMADO: 'bg-estado-confirmado-bg text-estado-confirmado-fg',
+  REALIZADO: 'bg-estado-realizado-bg text-estado-realizado-fg',
+  CANCELADO: 'bg-estado-cancelado-bg text-estado-cancelado-fg',
 }
 
 export function BadgeEstadoTurno({ estado }: { estado: EstadoTurno }) {

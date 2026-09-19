@@ -1,7 +1,24 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  defaultTranslations,
+  IlamyCalendar,
+  useIlamyCalendarContext,
+  type CalendarEvent,
+  type CalendarView,
+  type CellInfo,
+} from '@ilamy/calendar'
+import { dragToCreatePlugin } from '@ilamy/calendar/plugins/drag-to-create'
+import dayjs from 'dayjs'
+import 'dayjs/locale/es'
+import { listarBloqueos } from '../../api/endpoints/bloqueos'
 import { listarPacientes } from '../../api/endpoints/pacientes'
-import { listarTurnosPagina } from '../../api/endpoints/turnos'
+import {
+  actualizarTurno,
+  listarTurnosEnRango,
+  listarTurnosPagina,
+} from '../../api/endpoints/turnos'
+import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/PageHeader'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -9,7 +26,27 @@ import { CampoFecha } from '../../components/ui/CampoFecha'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { Toast } from '../../components/ui/Toast'
 import { formatearFecha } from '../../lib/fecha'
-import { formatearHora, formatearMonto } from '../../lib/formato'
+import { ETIQUETA_ESTADO, formatearHora, formatearMonto } from '../../lib/formato'
+import {
+  appointmentUpdateFromEvent,
+  asignarColumnasEventos,
+  bloqueoACalendarEvent,
+  calendarDraftFromSelection,
+  COLORES_ESTADO,
+  contarTurnosEnDiasOcultos,
+  diaHabilInicial,
+  crearRangoSemanal,
+  esEventoCorto,
+  etiquetaPeriodo,
+  serializarRangoVisible,
+  siguienteDiaHabil,
+  textoAvisoFinDeSemana,
+  textosEvento,
+  turnoACalendarEvent,
+  vistaInicialDelNavegador,
+  type CalendarDraft,
+  type RangoVisible,
+} from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
 import { SesionFormModal } from '../sesiones/SesionFormModal'
@@ -27,12 +64,18 @@ const ESTADOS: { clave: FiltroEstado; label: string }[] = [
 ]
 
 const POR_PAGINA = 10
+const VISTAS: { clave: CalendarView; label: string }[] = [
+  { clave: 'day', label: 'Día' },
+  { clave: 'week', label: 'Semana' },
+  { clave: 'month', label: 'Mes' },
+]
 
 export function TurnosPage() {
   const [estado, setEstado] = useState<FiltroEstado>('todos')
   const [fecha, setFecha] = useState('')
   const [pagina, setPagina] = useState(0)
   const [creando, setCreando] = useState(false)
+  const [creationDraft, setCreationDraft] = useState<CalendarDraft | null>(null)
   const [editando, setEditando] = useState<TurnoResponse | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
   const [sesionDe, setSesionDe] = useState<{
@@ -41,6 +84,29 @@ export function TurnosPage() {
   } | null>(null)
   const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  // The agenda never opens on a weekend: Saturday/Sunday start on the next Monday.
+  const [fechaInicial] = useState(() => diaHabilInicial(dayjs()))
+  const [rangoAgenda, setRangoAgenda] = useState(() => crearRangoSemanal(fechaInicial))
+  // Decided once on mount so a resize never yanks the user out of the view they picked.
+  const [vistaInicial] = useState(vistaInicialDelNavegador)
+  const queryClient = useQueryClient()
+
+  const openCreation = useCallback((selection?: Pick<CellInfo, 'start' | 'end'>) => {
+    setCreationDraft(selection ? calendarDraftFromSelection(selection) : null)
+    setCreando(true)
+  }, [])
+  const dragToCreate = useMemo(
+    () => dragToCreatePlugin({ onSelect: (selection) => openCreation(selection) }),
+    [openCreation],
+  )
+
+  const rangoQuery = useMemo(() => serializarRangoVisible(rangoAgenda), [rangoAgenda])
+  const agenda = useQuery({
+    queryKey: ['turnos', 'agenda', rangoQuery],
+    queryFn: () => listarTurnosEnRango(rangoQuery),
+    placeholderData: (previa) => previa,
+  })
+  const bloqueos = useQuery({ queryKey: ['bloqueos'], queryFn: listarBloqueos })
 
   const { data: page, isPending, error } = useQuery({
     queryKey: ['turnos', 'pagina', { estado, fecha, pagina }],
@@ -68,9 +134,68 @@ export function TurnosPage() {
   const nombreDe = (turno: TurnoResponse) =>
     nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'
 
+  const eventos = useMemo(() => {
+    const todos = [
+      ...(agenda.data ?? []).map((turno) =>
+        turnoACalendarEvent(turno, nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'),
+      ),
+      ...(bloqueos.data ?? []).map(bloqueoACalendarEvent),
+    ]
+    const columnas = asignarColumnasEventos(todos)
+    return todos.map((event) => {
+      const columna = columnas.get(event.id)
+      return columna ? { ...event, data: { ...event.data, ...columna } } : event
+    })
+  }, [agenda.data, bloqueos.data, nombrePorPaciente])
+  // Saturday and Sunday are hidden in the grid; count them so nothing disappears silently.
+  const turnosEnDiasOcultos = useMemo(
+    () => contarTurnosEnDiasOcultos(agenda.data ?? [], rangoAgenda),
+    [agenda.data, rangoAgenda],
+  )
+  const errorAgenda = agenda.error ?? bloqueos.error ?? pacientes.error
+
+  const calendarUpdate = useMutation({
+    mutationFn: ({ turno, event }: { turno: TurnoResponse; event: CalendarEvent }) => {
+      const update = appointmentUpdateFromEvent(turno, event)
+      if (!update) throw new Error('appointment_not_editable')
+      return actualizarTurno(turno.id, update)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      setAviso('Turno reprogramado.')
+    },
+    onError: async (mutationError) => {
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      setAviso(
+        mutationError instanceof ApiError
+          ? mutationError.message
+          : 'No pudimos reprogramar el turno. Se restauró el horario anterior.',
+      )
+    },
+  })
+
+  async function updateCalendarEvent(event: CalendarEvent) {
+    const id = event.data?.turnoId
+    const turno = typeof id === 'string' ? agenda.data?.find((item) => item.id === id) : undefined
+
+    if (!turno) {
+      setAviso('Los bloqueos se administran desde Disponibilidad.')
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      return
+    }
+    if (!appointmentUpdateFromEvent(turno, event)) {
+      setAviso('Los turnos realizados o cancelados no se pueden reprogramar.')
+      await queryClient.invalidateQueries({ queryKey: ['turnos'] })
+      return
+    }
+    calendarUpdate.mutate({ turno, event })
+  }
+
   // Se busca por id y no se guarda el objeto: al cambiar el estado la query se
   // refresca y el modal tiene que mostrar el turno nuevo, no el que se clickeó.
-  const turnoAbierto = page?.contenido.find((t) => t.id === abierto)
+  const turnoAbierto =
+    agenda.data?.find((turno) => turno.id === abierto) ??
+    page?.contenido.find((turno) => turno.id === abierto)
 
   const hayFiltros = estado !== 'todos' || fecha !== ''
 
@@ -100,10 +225,71 @@ export function TurnosPage() {
       <PageHeader
         titulo="Turnos"
         subtitulo="Tu agenda completa."
-        accion={<Button onClick={() => setCreando(true)}>Nuevo turno</Button>}
+        accion={<Button onClick={() => openCreation()}>Nuevo turno</Button>}
       />
 
       <div className="flex w-full max-w-[1420px] flex-col gap-4 px-4 pb-25 pt-4 app:gap-[22px] app:px-[34px] app:pb-15 app:pt-7">
+        <section aria-label="Agenda semanal" className="flex flex-col gap-3">
+          {errorAgenda && <ErrorDeCarga error={errorAgenda} />}
+          {(agenda.isPending || bloqueos.isPending || pacientes.isPending) && <Skeleton filas={4} />}
+
+          {/* The library draws grid lines with `bg-border`; overriding --border here softens
+              them without touching the global token. */}
+          <div
+            style={{ '--border': 'var(--color-sand-200)' } as CSSProperties}
+            className="agenda-turnos [&_*]:border-sand-200 h-[70dvh] min-h-[520px] max-h-[820px] overflow-hidden rounded-[20px] border border-sand-200 bg-sand-50 p-3 app:p-4"
+          >
+            <IlamyCalendar
+              events={eventos}
+              initialView={vistaInicial}
+              initialDate={fechaInicial}
+              firstDayOfWeek="monday"
+              hiddenDays={['saturday', 'sunday']}
+              locale="es"
+              translations={TRADUCCIONES}
+              timeFormat="24-hour"
+              businessHours={{
+                daysOfWeek: [
+                  'monday',
+                  'tuesday',
+                  'wednesday',
+                  'thursday',
+                  'friday',
+                  'saturday',
+                  'sunday',
+                ],
+                startTime: '08:00',
+                endTime: '20:00',
+              }}
+              scrollTime="08:00:00"
+              dayMaxEvents={3}
+              eventHeight={38}
+              stickyViewHeader
+              hideExportButton
+              plugins={[dragToCreate]}
+              headerComponent={
+                <CabeceraAgenda
+                  turnosEnDiasOcultos={turnosEnDiasOcultos}
+                  hayFiltros={hayFiltros}
+                  alCambiarRango={setRangoAgenda}
+                />
+              }
+              renderEvent={(event) => <EventoAgenda event={event} />}
+              onDateChange={(_fechaActual, rango) =>
+                setRangoAgenda({ inicio: rango.start, fin: rango.end })
+              }
+              onCellClick={(selection) => openCreation(selection)}
+              onEventUpdate={updateCalendarEvent}
+              onEventClick={(event) => {
+                if (event.data?.tipo === 'turno' && typeof event.data.turnoId === 'string') {
+                  setAbierto(event.data.turnoId)
+                }
+              }}
+            />
+          </div>
+        </section>
+
+        <h2 className="text-base font-semibold text-sage-900">Lista y filtros</h2>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-control border border-sand-200 bg-sand-50 p-1">
             {ESTADOS.map(({ clave, label }) => (
@@ -170,9 +356,15 @@ export function TurnosPage() {
 
       {creando && (
         <TurnoFormModal
-          onCerrar={() => setCreando(false)}
+          initialStart={creationDraft?.start}
+          initialEnd={creationDraft?.end}
+          onCerrar={() => {
+            setCreando(false)
+            setCreationDraft(null)
+          }}
           onListo={(mensaje) => {
             setCreando(false)
+            setCreationDraft(null)
             setAviso(mensaje)
           }}
         />
@@ -240,6 +432,158 @@ export function TurnosPage() {
 
       {aviso && <Toast mensaje={aviso} onCerrar={() => setAviso(null)} />}
     </>
+  )
+}
+
+const TRADUCCIONES = {
+  ...defaultTranslations,
+  today: 'Hoy',
+  week: 'Semana',
+  day: 'Día',
+  month: 'Mes',
+  year: 'Año',
+  allDay: 'Todo día',
+  more: 'más',
+  previous: 'Anterior',
+  next: 'Siguiente',
+}
+
+const ESTADOS_LEYENDA: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO', 'REALIZADO', 'CANCELADO']
+const BOTON_NAVEGACION =
+  'flex min-h-11 items-center justify-center px-3 text-lg text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9'
+
+function CabeceraAgenda({
+  turnosEnDiasOcultos,
+  hayFiltros,
+  alCambiarRango,
+}: {
+  turnosEnDiasOcultos: number
+  hayFiltros: boolean
+  alCambiarRango: (rango: RangoVisible) => void
+}) {
+  const { currentDate, currentRange, nextPeriod, prevPeriod, setCurrentDate, setView, view } =
+    useIlamyCalendarContext()
+
+  // The library only fires `onDateChange` for its own arrows. Our day-view navigation calls
+  // `setCurrentDate` (to skip weekends), which does not, so the fetched range would stay on
+  // the first day and every other day would look empty. Syncing the visible range here covers
+  // every way of changing the date. Millisecond values keep the effect from firing on
+  // identity changes only.
+  const inicioMs = currentRange.start.valueOf()
+  const finMs = currentRange.end.valueOf()
+  useEffect(() => {
+    alCambiarRango({ inicio: dayjs(inicioMs), fin: dayjs(finMs) })
+  }, [inicioMs, finMs, alCambiarRango])
+  // Day view skips Saturday and Sunday; week and month keep the library navigation.
+  const enDia = view === 'day'
+  const irAnterior = enDia ? () => setCurrentDate(siguienteDiaHabil(currentDate, -1)) : prevPeriod
+  const irSiguiente = enDia ? () => setCurrentDate(siguienteDiaHabil(currentDate, 1)) : nextPeriod
+  // "Hoy" in every view: on a weekend it lands on Monday, the same date the agenda opens on.
+  const irAHoy = () => setCurrentDate(diaHabilInicial(dayjs()))
+  const titulo = etiquetaPeriodo(view, currentDate, currentRange.start, currentRange.end)
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-1 pb-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex overflow-hidden rounded-xl border border-sand-300 bg-white">
+          <button
+            type="button"
+            aria-label="Período anterior"
+            onClick={irAnterior}
+            className={BOTON_NAVEGACION}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="Período siguiente"
+            onClick={irSiguiente}
+            className={`${BOTON_NAVEGACION} border-l border-sand-300`}
+          >
+            ›
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={irAHoy}
+          className="min-h-11 rounded-xl border border-sand-300 bg-white px-3.5 text-[13px] font-semibold text-sage-800 transition-colors hover:bg-sage-50 app:min-h-9"
+        >
+          Hoy
+        </button>
+        <span className="min-w-0 truncate text-sm font-semibold text-sage-900 app:text-base">
+          {titulo}
+        </span>
+      </div>
+
+      <ul aria-label="Estados" className="ml-auto hidden items-center gap-4 app:flex">
+        {ESTADOS_LEYENDA.map((estado) => (
+          <li key={estado} className="flex items-center gap-1.5 text-xs text-sand-700">
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-full"
+              style={{ backgroundColor: COLORES_ESTADO[estado].linea }}
+            />
+            {ETIQUETA_ESTADO[estado]}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex rounded-xl bg-sand-100 p-1 max-app:ml-auto">
+        {VISTAS.map(({ clave, label }) => (
+          <button
+            key={clave}
+            type="button"
+            aria-pressed={view === clave}
+            onClick={() => (clave === 'day' ? setView(clave, diaHabilInicial(currentDate)) : setView(clave))}
+            className={`min-h-10 rounded-[9px] px-3 text-xs font-semibold transition-colors app:min-h-8 ${
+              view === clave ? 'bg-white text-sage-900 shadow-sm' : 'text-sand-700 hover:bg-sand-50'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {turnosEnDiasOcultos > 0 && view !== 'day' && (
+        <p className="basis-full text-[12.5px] text-sand-700">
+          {textoAvisoFinDeSemana(turnosEnDiasOcultos, hayFiltros)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function EventoAgenda({ event }: { event: CalendarEvent }) {
+  const { titulo, detalle, tachado } = textosEvento(event)
+  const linea = typeof event.data?.linea === 'string' ? event.data.linea : undefined
+  const corto = esEventoCorto(event)
+  const { columna, total } = event.data ?? {}
+  const estiloTitulo = tachado ? 'line-through' : ''
+
+  return (
+    <div
+      data-col={typeof columna === 'number' ? columna : undefined}
+      data-cols={typeof total === 'number' ? total : undefined}
+      className={`h-full min-w-0 overflow-hidden rounded-md border-l-[3px] px-2 text-left ${
+        corto ? 'flex items-center py-0 leading-none' : 'py-1 leading-tight'
+      }`}
+      style={{
+        backgroundColor: event.backgroundColor,
+        color: event.color,
+        borderLeftColor: linea ?? 'transparent',
+      }}
+    >
+      {corto ? (
+        <div className={`min-w-0 truncate text-[11px] font-semibold ${estiloTitulo}`}>
+          <span className="opacity-80">{event.start.format('HH:mm')}</span> {titulo}
+        </div>
+      ) : (
+        <>
+          <div className={`truncate text-[12.5px] font-semibold ${estiloTitulo}`}>{titulo}</div>
+          <div className="truncate text-[11px] opacity-80">{detalle}</div>
+        </>
+      )}
+    </div>
   )
 }
 

@@ -12,26 +12,41 @@ import { Modal } from '../../components/ui/Modal'
 import { esHoraValida } from '../../lib/fecha'
 import { formatearMonto } from '../../lib/formato'
 import { desplazarFin, sugerirFin, validarRangoHorario } from '../../lib/horario'
-import type { TurnoResponse, UUID } from '../../types/api'
+import type { LocalDateTime, TurnoResponse, UUID } from '../../types/api'
 
 interface Props {
   /** Si viene, el turno se agenda para ese paciente y el selector no se muestra. */
   pacienteId?: UUID
   /** Si viene, el modal edita ese turno en vez de crear uno nuevo. */
   turno?: TurnoResponse
+  initialStart?: LocalDateTime
+  initialEnd?: LocalDateTime
   onCerrar: () => void
   onListo: (mensaje: string) => void
 }
 
-export function TurnoFormModal({ pacienteId, turno, onCerrar, onListo }: Props) {
+export function TurnoFormModal({
+  pacienteId,
+  turno,
+  initialStart,
+  initialEnd,
+  onCerrar,
+  onListo,
+}: Props) {
   const editando = turno !== undefined
   const [paciente, setPaciente] = useState<UUID>(turno?.pacienteId ?? pacienteId ?? '')
-  const [fecha, setFecha] = useState(turno ? turno.fechaHora.slice(0, 10) : '')
-  const [hora, setHora] = useState(turno ? turno.fechaHora.slice(11, 16) : '')
-  const [horaFin, setHoraFin] = useState(turno ? turno.fechaHoraFin.slice(11, 16) : '')
+  const [fecha, setFecha] = useState(
+    turno?.fechaHora.slice(0, 10) ?? initialStart?.slice(0, 10) ?? '',
+  )
+  const [hora, setHora] = useState(
+    turno?.fechaHora.slice(11, 16) ?? initialStart?.slice(11, 16) ?? '',
+  )
+  const [horaFin, setHoraFin] = useState(
+    turno?.fechaHoraFin.slice(11, 16) ?? initialEnd?.slice(11, 16) ?? '',
+  )
   // Al editar, el fin ya guardado gana; al crear arranca en modo "sugerido"
   // hasta que la profesional lo toque a mano.
-  const [finManual, setFinManual] = useState(editando)
+  const [finManual, setFinManual] = useState(editando || initialEnd !== undefined)
   const [servicioIds, setServicioIds] = useState<UUID[]>(
     turno ? turno.servicios.map((s) => s.servicioId) : [],
   )

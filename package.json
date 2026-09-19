@@ -11,10 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ilamy/calendar": "^3.0.0",
     "@tanstack/react-query": "^5.101.4",
+    "dayjs": "^1.11.23",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

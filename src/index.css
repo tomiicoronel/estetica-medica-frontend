@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source '../node_modules/@ilamy/calendar/dist';
 
 /* ---------------------------------------------------------------------------
    Tokens de diseño — EsteticaApp ("Spa moderno": sage + sand + clay)
@@ -64,6 +65,71 @@
   --radius-2xl: 1.25rem;
   /* Radio de los controles (inputs, botones, chips) en todo el diseño: 12px. */
   --radius-control: 0.75rem;
+}
+
+/* `static` evita que Tailwind v4 pode los tokens que solo se usan vía `var()`
+   inline (la agenda y las leyendas). */
+@theme static {
+  /* Estados del turno — un set único de bg/fg/linea por estado, consumido por
+     el Badge (utilidades `bg-estado-*`) y por la agenda (`var(--color-estado-*)`).
+     Espejan los tonos estándar de Tailwind que el Badge ya usaba (amber, sky,
+     emerald, rose: 100 / 800 / 400), con hex literales para que existan siempre
+     en runtime. No están en paleta.md porque son semánticos, no de marca. */
+  --color-estado-pendiente-bg: #fef3c7;
+  --color-estado-pendiente-fg: #92400e;
+  --color-estado-pendiente-linea: #fbbf24;
+  --color-estado-confirmado-bg: #e0f2fe;
+  --color-estado-confirmado-fg: #075985;
+  --color-estado-confirmado-linea: #38bdf8;
+  --color-estado-realizado-bg: #d1fae5;
+  --color-estado-realizado-fg: #065f46;
+  --color-estado-realizado-linea: #34d399;
+  --color-estado-cancelado-bg: #ffe4e6;
+  --color-estado-cancelado-fg: #9f1239;
+  --color-estado-cancelado-linea: #fb7185;
+}
+
+/* Bridge the calendar's shadcn utility tokens into the existing app palette. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --background: var(--color-sand-50);
+  --foreground: var(--color-sage-900);
+  --card: #ffffff;
+  --card-foreground: var(--color-sage-900);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-sage-900);
+  --primary: var(--color-sage-700);
+  --primary-foreground: var(--color-sand-50);
+  --secondary: var(--color-sand-200);
+  --secondary-foreground: var(--color-sage-900);
+  --muted: var(--color-sand-100);
+  --muted-foreground: var(--color-sand-700);
+  --accent: var(--color-sage-100);
+  --accent-foreground: var(--color-sage-900);
+  --destructive: var(--color-clay-700);
+  --border: var(--color-sand-300);
+  --input: var(--color-sand-300);
+  --ring: var(--color-sage-400);
 }
 
 @layer base {
@@ -165,4 +231,86 @@
   textarea {
     font-size: 16px;
   }
+}
+
+/* Taller hour rows in the Turnos agenda so short appointments have room.
+   The library hardcodes `min-h-[60px]` on its time-grid hour cells (the only use of that class). */
+.agenda-turnos .min-h-\[60px\] {
+  min-height: 84px;
+}
+
+/* The library uses z-20/z-21 for its sticky day header and hour gutter, the same level as the
+   PageHeader. Isolating the calendar makes every inner z-index local to it, so nothing inside
+   can ever be painted above the page header while the page scrolls. */
+.agenda-turnos {
+  isolation: isolate;
+}
+
+/* Overlapping appointments share the column width side by side (Google Calendar style)
+   instead of the library's narrow cascade. The library positions each event wrapper with
+   inline `left`/`width`, so `!important` is the only way to override it without forking it.
+   Scoped to `.agenda-turnos` and to the timed-events layer of the week/day grids.
+   Structure: layer > div.absolute (wrapper) > div (library) > our [data-cols] element.
+   `data-col`/`data-cols` come from `asignarColumnasEventos`; with more than 4 columns or
+   without the attributes, the library layout stays in place. */
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="2"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(50% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="2"][data-col="1"]) {
+  left: 50% !important;
+  width: calc(50% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="1"]) {
+  left: 33.3333% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="3"][data-col="2"]) {
+  left: 66.6667% !important;
+  width: calc(33.3333% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="0"]) {
+  left: 0% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="1"]) {
+  left: 25% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="2"]) {
+  left: 50% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+.agenda-turnos .relative.pointer-events-none.overflow-clip > .absolute:has(> * > [data-cols="4"][data-col="3"]) {
+  left: 75% !important;
+  width: calc(25% - var(--spacing) * 2) !important;
+}
+
+/* Month view shows Monday to Friday only. The library's `hiddenDays` does not apply to the
+   month grid, and its event layer positions events with left%/width% that assume 7 equal
+   columns, so removing the Saturday/Sunday cells would misalign every event. Instead the
+   7-column geometry is kept and stretched to 140% (7/5) of the container, then clipped:
+   Monday to Friday fill 100% of the visible width and Saturday/Sunday fall outside it.
+   The `:has()` guard on the presence of the month header keeps week/day views untouched.
+   Multi-day events that cross into the clipped area are simply clipped. */
+.agenda-turnos:has([data-testid='month-header']) [data-testid='horizontal-grid-header'],
+.agenda-turnos:has([data-testid='month-header']) [data-testid='horizontal-grid-body'] {
+  overflow-x: clip;
+}
+
+.agenda-turnos:has([data-testid='month-header']) [data-testid='month-header'],
+.agenda-turnos:has([data-testid='month-header']) [data-testid^='horizontal-row-week'] {
+  /* Width only: the rows are `flex-1` in a column, and that must keep sharing the height. */
+  width: 140%;
+  max-width: none;
+}
+
+/* The header row lives inside a flex row (`horizontal-grid-header`), so without this the
+   flex item shrinks back to the container width and no longer lines up with the body. */
+.agenda-turnos:has([data-testid='month-header']) [data-testid='month-header'] {
+  flex: none;
 }
