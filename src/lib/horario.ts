@@ -33,6 +33,23 @@ export function sugerirFin(horaInicio: string, duracionTotalMinutos: number): st
 }
 
 /**
+ * Duración por defecto (minutos) para sugerir "Hora de fin" cuando el turno
+ * no tiene servicios elegidos. Mismo default que `TURNO_DURACION_DEFAULT_MINUTOS`
+ * en el backend; es solo una sugerencia de UX, el backend es la autoridad real.
+ */
+export const DURACION_DEFAULT_SIN_SERVICIO_MINUTOS = 30
+
+/**
+ * Igual que `sugerirFin`, pero si no hay duración (sin servicios elegidos)
+ * cae al default `DURACION_DEFAULT_SIN_SERVICIO_MINUTOS` en vez de devolver
+ * `null`. `sugerirFin` no cambia su comportamiento.
+ */
+export function sugerirFinTurno(horaInicio: string, duracionTotalMinutos: number): string | null {
+  if (duracionTotalMinutos > 0) return sugerirFin(horaInicio, duracionTotalMinutos)
+  return sugerirFin(horaInicio, DURACION_DEFAULT_SIN_SERVICIO_MINUTOS)
+}
+
+/**
  * Desplaza la hora de fin cuando cambia la de inicio, conservando la duración
  * actual del par inicio/fin (como arrastrar un evento en Google Calendar).
  * `null` si algún dato es inválido, el par actual no es válido (fin <= inicio)

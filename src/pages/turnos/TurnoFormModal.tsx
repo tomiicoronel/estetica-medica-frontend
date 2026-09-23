@@ -11,7 +11,7 @@ import { CampoHora } from '../../components/ui/CampoHora'
 import { Modal } from '../../components/ui/Modal'
 import { esHoraValida } from '../../lib/fecha'
 import { formatearMonto } from '../../lib/formato'
-import { desplazarFin, sugerirFin, validarRangoHorario } from '../../lib/horario'
+import { desplazarFin, sugerirFinTurno, validarRangoHorario } from '../../lib/horario'
 import type { LocalDateTime, TurnoResponse, UUID } from '../../types/api'
 
 interface Props {
@@ -135,7 +135,7 @@ export function TurnoFormModal({
     [servicioIds, servicios.data, serviciosTodos.data],
   )
 
-  const sugerenciaFin = sugerirFin(hora, duracionTotal)
+  const sugerenciaFin = sugerirFinTurno(hora, duracionTotal)
   const mostrarSugerencia =
     finManual && sugerenciaFin !== null && sugerenciaFin !== horaFin
 
@@ -143,7 +143,7 @@ export function TurnoFormModal({
   // duraciones) cada vez que cambian el inicio o los servicios elegidos.
   useEffect(() => {
     if (finManual) return
-    setHoraFin(sugerirFin(hora, duracionTotal) ?? '')
+    setHoraFin(sugerirFinTurno(hora, duracionTotal) ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finManual, hora, duracionTotal])
 
@@ -210,10 +210,6 @@ export function TurnoFormModal({
     }
     if (!esHoraValida(hora)) {
       setErrorLocal('La hora tiene que estar en formato hh:mm, por ejemplo 14:30.')
-      return
-    }
-    if (servicioIds.length === 0) {
-      setErrorLocal('Elegí al menos un servicio.')
       return
     }
     const errorRango = validarRangoHorario(hora, horaFin)
@@ -329,8 +325,9 @@ export function TurnoFormModal({
         </div>
 
         <div className="flex flex-col gap-[7px]">
-          <span className="text-[13px] font-medium text-sage-800">
-            Servicios<span className="ml-1 text-clay-500">*</span>
+          <span className="text-[13px] font-medium text-sage-800">Servicios</span>
+          <span className="text-xs text-sand-700">
+            Opcional: podés agendarlo sin servicio y agregarlo después editando el turno.
           </span>
 
           {servicios.isPending && (

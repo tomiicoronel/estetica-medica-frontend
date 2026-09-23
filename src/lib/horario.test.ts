@@ -4,6 +4,7 @@ import {
   horaAMinutos,
   minutosAHora,
   sugerirFin,
+  sugerirFinTurno,
   validarRangoHorario,
 } from './horario'
 
@@ -54,6 +55,27 @@ describe('sugerirFin', () => {
 
   it('caso límite: exactamente 12 horas de duración es válido', () => {
     expect(sugerirFin('08:00', 720)).toBe('20:00')
+  })
+})
+
+describe('sugerirFinTurno', () => {
+  it('sin duración (sin servicios), usa el default de 30 min', () => {
+    expect(sugerirFinTurno('09:00', 0)).toBe('09:30')
+    expect(sugerirFinTurno('09:00', -5)).toBe('09:30')
+  })
+
+  it('con duración > 0, se comporta igual que sugerirFin', () => {
+    expect(sugerirFinTurno('09:00', 30)).toBe('09:30')
+    expect(sugerirFinTurno('09:00', 90)).toBe('10:30')
+  })
+
+  it('el default también puede cruzar medianoche y devolver null', () => {
+    expect(sugerirFinTurno('23:45', 0)).toBeNull()
+  })
+
+  it('devuelve null si la hora de inicio es inválida o está vacía', () => {
+    expect(sugerirFinTurno('', 0)).toBeNull()
+    expect(sugerirFinTurno('25:00', 30)).toBeNull()
   })
 })
 
