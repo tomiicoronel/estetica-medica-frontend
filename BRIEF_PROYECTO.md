@@ -76,7 +76,7 @@ Entidades principales (`model/`):
   servicio al momento de creación (`TurnoServicio.precioMomento`). Estados en
   `EstadoTurno`: `PENDIENTE → CONFIRMADO → REALIZADO` / `CANCELADO`.
 - **Pago** — pago parcial o total de un turno. `MetodoPago`: `EFECTIVO`, `TRANSFERENCIA`,
-  `MERCADO_PAGO`, `TRUEQUE` (este último requiere detalle).
+  `MERCADO_PAGO`, `CANJE` (requiere detalle), `SIN_CARGO`. Canje y sin cargo saldan toda la deuda restante del turno, conservan el precio del servicio y no cuentan como dinero cobrado (excluidos de recaudación y totales de pagos). Antes `TRUEQUE`.
 - **SesionClinica** — registro clínico de un turno realizado (1:1 con turno).
 - **HistoriaClinicaFacial** / **HistoriaClinicaCorporal** — ficha clínica 1:1 con paciente.
 - **FotoPaciente** — metadatos de una foto de evolución vinculada a una sesión clínica.

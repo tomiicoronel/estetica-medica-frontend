@@ -11,6 +11,7 @@ import {
   formatearFechaLarga,
   formatearMonto,
 } from '../../lib/formato'
+import { esMetodoExento } from '../../lib/pagos'
 import { AgendaDeHoy } from './AgendaDeHoy'
 import type { MetodoPago, TurnoResponse } from '../../types/api'
 
@@ -232,6 +233,8 @@ function Recaudacion({
   const desglose = useMemo(() => {
     const porMetodo = new Map<MetodoPago, number>()
     for (const pago of pagos ?? []) {
+      // Canje y sin cargo no son dinero cobrado: fuera del desglose.
+      if (esMetodoExento(pago.metodo)) continue
       porMetodo.set(pago.metodo, (porMetodo.get(pago.metodo) ?? 0) + pago.monto)
     }
     return [...porMetodo.entries()]

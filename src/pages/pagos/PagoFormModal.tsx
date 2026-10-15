@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Textarea } from '../../components/ui/Textarea'
 import { ETIQUETA_METODO, formatearMonto } from '../../lib/formato'
+import { esMetodoExento } from '../../lib/pagos'
 import type { MetodoPago, UUID } from '../../types/api'
 
 interface Props {
@@ -18,16 +19,17 @@ interface Props {
   onListo: (mensaje: string) => void
 }
 
-const METODOS: MetodoPago[] = ['EFECTIVO', 'TRANSFERENCIA', 'MERCADO_PAGO', 'TRUEQUE']
+const METODOS: MetodoPago[] = ['EFECTIVO', 'TRANSFERENCIA', 'MERCADO_PAGO', 'CANJE', 'SIN_CARGO']
 
 export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO')
   const [monto, setMonto] = useState('')
   const [esSena, setEsSena] = useState(false)
-  const [detalleTrueque, setDetalleTrueque] = useState('')
+  const [detalleCanje, setDetalleCanje] = useState('')
   const [errorLocal, setErrorLocal] = useState<string | null>(null)
 
-  const esTrueque = metodo === 'TRUEQUE'
+  const esCanje = metodo === 'CANJE'
+  const esExento = esMetodoExento(metodo)
 
   const queryClient = useQueryClient()
 
@@ -35,9 +37,9 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
     mutationFn: () =>
       registrarPago(turnoId, {
         metodo,
-        monto: Number(monto),
-        esSena,
-        detalleTrueque: esTrueque ? detalleTrueque.trim() : undefined,
+        monto: esExento ? deuda : Number(monto),
+        esSena: esExento ? false : esSena,
+        detalleCanje: esCanje ? detalleCanje.trim() : undefined,
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['pagos'] })
@@ -51,7 +53,7 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
     evento.preventDefault()
     setErrorLocal(null)
 
-    const valor = Number(monto)
+    const valor = esExento ? deuda : Number(monto)
     if (!Number.isFinite(valor) || valor <= 0) {
       setErrorLocal('El monto tiene que ser mayor a 0.')
       return
@@ -61,8 +63,8 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
       setErrorLocal(`El monto no puede superar la deuda del turno (${formatearMonto(deuda)}).`)
       return
     }
-    if (esTrueque && detalleTrueque.trim() === '') {
-      setErrorLocal('El detalle es obligatorio cuando el método es trueque.')
+    if (esCanje && detalleCanje.trim() === '') {
+      setErrorLocal('El detalle es obligatorio cuando el método es canje.')
       return
     }
 
@@ -99,8 +101,9 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
             step="0.01"
             superficie="blanco"
             placeholder="0.00"
-            value={monto}
+            value={esExento ? String(deuda) : monto}
             onChange={(e) => setMonto(e.target.value)}
+            disabled={esExento}
             error={campo('monto')}
           />
 
@@ -123,26 +126,35 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
           </div>
         </div>
 
-        <label className="flex items-center gap-2.5 text-[13.5px]">
-          <input
-            type="checkbox"
-            checked={esSena}
-            onChange={(e) => setEsSena(e.target.checked)}
-            className="size-[18px] accent-sage-600"
-          />
-          Es una seña
-        </label>
+        {!esExento && (
+          <label className="flex items-center gap-2.5 text-[13.5px]">
+            <input
+              type="checkbox"
+              checked={esSena}
+              onChange={(e) => setEsSena(e.target.checked)}
+              className="size-[18px] accent-sage-600"
+            />
+            Es una seña
+          </label>
+        )}
 
-        {esTrueque && (
+        {esExento && (
+          <p className="text-[13px] text-sand-700">
+            El turno se marca como cubierto por el total que falta ({formatearMonto(deuda)}), pero no
+            cuenta como dinero cobrado. El precio del servicio se mantiene.
+          </p>
+        )}
+
+        {esCanje && (
           <Textarea
-            label="Detalle del trueque"
+            label="Detalle del canje"
             required
             superficie="blanco"
             rows={3}
-            value={detalleTrueque}
-            onChange={(e) => setDetalleTrueque(e.target.value)}
-            ayuda="Obligatorio cuando el método es trueque."
-            error={campo('detalleTrueque')}
+            value={detalleCanje}
+            onChange={(e) => setDetalleCanje(e.target.value)}
+            ayuda="Obligatorio cuando el método es canje."
+            error={campo('detalleCanje')}
           />
         )}
 

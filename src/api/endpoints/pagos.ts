@@ -35,7 +35,7 @@ export function listarPagosDeTurno(turnoId: UUID): Promise<PagoResponse[]> {
 
 /**
  * Admite pagos parciales; el backend rechaza con 400 si el monto supera lo que
- * falta del turno, y exige `detalleTrueque` cuando el método es TRUEQUE.
+ * falta del turno, y exige `detalleCanje` cuando el método es CANJE.
  */
 export function registrarPago(turnoId: UUID, datos: PagoRequest): Promise<PagoResponse> {
   return api.post<PagoResponse>(`/api/turnos/${turnoId}/pagos`, datos)

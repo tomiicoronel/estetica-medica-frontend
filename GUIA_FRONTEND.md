@@ -395,7 +395,7 @@ Sin `fecha`, `.../fotos/pagina` pagina todas las fotos del paciente.
 | GET | `/api/pagos/resumen-diario?fecha=2026-06-05` | - | `ResumenDiarioPagoResponse` | Autenticado |
 | DELETE | `/api/pagos/{id}` | - | 204 | Autenticado |
 
-Métodos de pago válidos: `EFECTIVO`, `TRANSFERENCIA`, `MERCADO_PAGO`, `TRUEQUE`.
+Métodos de pago válidos: `EFECTIVO`, `TRANSFERENCIA`, `MERCADO_PAGO`, `CANJE`, `SIN_CARGO`. `CANJE` y `SIN_CARGO` saldan toda la deuda restante del turno (el monto debe ser igual a lo que falta), conservan el precio del servicio y no cuentan como dinero cobrado: quedan fuera de la recaudación y de los totales de pagos. `CANJE` exige `detalleCanje`; `SIN_CARGO` no lleva detalle.
 
 `GET /api/pagos/resumen-diario?fecha=2026-06-05` devuelve, para la profesional autenticada, solo los pagos cuya `fecha` cae dentro del día consultado y el total recaudado de ese día. Si se omite `fecha`, usa el día actual en zona horaria de Argentina (`America/Argentina/Buenos_Aires`). El filtro toma el rango completo del día local: desde `00:00:00` inclusive hasta el inicio del día siguiente exclusivo, por lo que un pago a las `2026-06-05T16:10:00` cuenta para `2026-06-05`. La respuesta `ResumenDiarioPagoResponse` incluye `fecha`, `totalRecaudado` (`BigDecimal`), `cantidadPagos` y `pagos`. `GET /api/pagos` sigue devolviendo todos los pagos históricos para reportes generales.
 
@@ -424,7 +424,7 @@ type LocalDate = string; // "1990-05-20"
 type LocalDateTime = string; // "2026-06-01T10:30:00"
 type RolUsuario = "ADMIN" | "PROFESIONAL" | "PACIENTE";
 type EstadoTurno = "PENDIENTE" | "CONFIRMADO" | "REALIZADO" | "CANCELADO";
-type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "MERCADO_PAGO" | "TRUEQUE";
+type MetodoPago = "EFECTIVO" | "TRANSFERENCIA" | "MERCADO_PAGO" | "CANJE" | "SIN_CARGO";
 type SeveridadMrs = "NINGUNO_MINIMO" | "LEVE" | "MODERADO" | "SEVERO";
 /** Puntaje de un síntoma de la escala MRS: 0 = ninguno, 1 = leve, 2 = moderado, 3 = grave, 4 = extremadamente grave. */
 type PuntajeMrs = 0 | 1 | 2 | 3 | 4;
@@ -652,7 +652,7 @@ interface PagoRequest {
   metodo: MetodoPago;
   monto: number;
   esSena?: boolean;
-  detalleTrueque?: string;
+  detalleCanje?: string;
   fecha?: LocalDateTime;
 }
 
@@ -662,8 +662,9 @@ interface PagoResponse {
   metodo: MetodoPago;
   monto: number;
   esSena: boolean;
-  esTrueque: boolean;
-  detalleTrueque?: string;
+  esCanje: boolean;
+  esSinCargo: boolean;
+  detalleCanje?: string;
   fecha: LocalDateTime;
   creadoEn: LocalDateTime;
   actualizadoEn: LocalDateTime;
@@ -952,7 +953,7 @@ interface HistoriaClinicaCorporalRequest {
 - Para el dashboard usar `GET /api/dashboard?fecha=` y `GET /api/pagos/resumen-diario?fecha=`: calculan por día y no mezclan totales históricos con datos del día. El total histórico sigue disponible en `GET /api/pagos`.
 - Para "próximos turnos" usar `GET /api/turnos/proximos`: trae todos los turnos del día consultado, sin límite fijo de 5.
 - Las fechas de `?fecha=` van en formato `yyyy-MM-dd`; `pacientesActivos` del dashboard es un total y no depende de la fecha.
-- En pagos, si `metodo` es `TRUEQUE`, usar `detalleTrueque`.
+- En pagos, si `metodo` es `CANJE`, enviar `detalleCanje` (obligatorio); con `SIN_CARGO` no se envía detalle. Con ambos el `monto` debe ser igual a la deuda restante del turno, y esos pagos no suman en recaudado ni en totales (el front los excluye con `sumarCobrado` en `src/lib/pagos.ts`).
 - Los recursos de otra profesional devuelven 404 para no revelar que existen.
 - En la ficha de menopausia (MRS), un paciente puede tener **muchas** evaluaciones: crear una segunda devuelve 201, no 409. No reutilizar la lógica de "ya existe ficha" de las historias clínicas.
 - En `EvaluacionMenopausiaRequest` los 11 síntomas son obligatorios. Conviene inicializar el formulario con los 11 en `0` (que es un valor válido: "no procede/ninguno"), no en `null`, para no comerse un 400.

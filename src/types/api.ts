@@ -10,7 +10,7 @@ export type LocalDateTime = string // "2026-06-01T10:30:00"
 
 export type RolUsuario = 'ADMIN' | 'PROFESIONAL' | 'PACIENTE'
 export type EstadoTurno = 'PENDIENTE' | 'CONFIRMADO' | 'REALIZADO' | 'CANCELADO'
-export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'MERCADO_PAGO' | 'TRUEQUE'
+export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'MERCADO_PAGO' | 'CANJE' | 'SIN_CARGO'
 export type SeveridadMrs = 'NINGUNO_MINIMO' | 'LEVE' | 'MODERADO' | 'SEVERO'
 
 /** Puntaje de un síntoma MRS: 0 = ninguno, 1 = leve, 2 = moderado, 3 = grave, 4 = extremadamente grave. */
@@ -421,7 +421,7 @@ export interface PagoRequest {
   metodo: MetodoPago
   monto: number
   esSena?: boolean
-  detalleTrueque?: string
+  detalleCanje?: string
   fecha?: LocalDateTime
 }
 
@@ -431,8 +431,9 @@ export interface PagoResponse {
   metodo: MetodoPago
   monto: number
   esSena: boolean
-  esTrueque: boolean
-  detalleTrueque?: string
+  esCanje: boolean
+  esSinCargo: boolean
+  detalleCanje?: string
   fecha: LocalDateTime
   creadoEn: LocalDateTime
   actualizadoEn: LocalDateTime

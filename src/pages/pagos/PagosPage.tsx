@@ -6,6 +6,7 @@ import { listarTurnos } from '../../api/endpoints/turnos'
 import { PageHeader } from '../../components/PageHeader'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { formatearFecha } from '../../lib/fecha'
+import { sumarCobrado } from '../../lib/pagos'
 import {
   ETIQUETA_METODO,
   aFechaISO,
@@ -75,7 +76,7 @@ export function PagosPage() {
   }, [turnos.data, historico.data])
 
   const totalHistorico = useMemo(
-    () => historico.data?.reduce((suma, pago) => suma + pago.monto, 0),
+    () => (historico.data ? sumarCobrado(historico.data) : undefined),
     [historico.data],
   )
 
@@ -311,13 +312,14 @@ const ESTILO_METODO: Record<string, string> = {
   EFECTIVO: 'bg-emerald-100 text-emerald-800',
   TRANSFERENCIA: 'bg-sky-100 text-sky-800',
   MERCADO_PAGO: 'bg-indigo-100 text-indigo-800',
-  TRUEQUE: 'bg-amber-100 text-amber-800',
+  CANJE: 'bg-amber-100 text-amber-800',
+  SIN_CARGO: 'bg-sand-200 text-sand-700',
 }
 
 function BadgeMetodo({ pago }: { pago: PagoResponse }) {
   return (
     <span
-      title={pago.esTrueque ? oGuion(pago.detalleTrueque) : undefined}
+      title={pago.esCanje ? oGuion(pago.detalleCanje) : undefined}
       className={`inline-flex w-fit items-center justify-self-start rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${ESTILO_METODO[pago.metodo]}`}
     >
       {ETIQUETA_METODO[pago.metodo]}
