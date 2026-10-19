@@ -5,6 +5,7 @@ import { listarPagosDeTurno } from '../../api/endpoints/pagos'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { formatearFecha } from '../../lib/fecha'
 import { ETIQUETA_METODO, formatearMonto } from '../../lib/formato'
+import { sumarCobrado, sumarCubiertoSinCobro } from '../../lib/pagos'
 import type { PagoResponse, TurnoResponse, UUID } from '../../types/api'
 
 /**
@@ -42,17 +43,21 @@ export function PagosDelPaciente({ pacienteId }: { pacienteId: UUID }) {
   }, [consultas, relevantes])
 
   const facturado = relevantes.reduce((suma, t) => suma + t.montoTotal, 0)
-  const pagado = filas.reduce((suma, f) => suma + f.pago.monto, 0)
-  const deuda = Math.max(0, facturado - pagado)
+  const pagos = filas.map((f) => f.pago)
+  const cobrado = sumarCobrado(pagos)
+  const cubierto = sumarCubiertoSinCobro(pagos)
+  // La deuda descuenta todos los pagos, también canje y sin cargo.
+  const deuda = Math.max(0, facturado - cobrado - cubierto)
 
   if (turnos.error) return <ErrorDeCarga error={turnos.error} />
   if (cargando) return <Skeleton filas={3} />
 
   return (
     <div className="flex flex-col gap-[14px]">
-      <div className="grid gap-2.5 app:grid-cols-3 app:gap-[14px]">
+      <div className="grid gap-2.5 app:grid-cols-4 app:gap-[14px]">
         <Stat label="Facturado" valor={formatearMonto(facturado)} />
-        <Stat label="Pagado" valor={formatearMonto(pagado)} />
+        <Stat label="Cobrado" valor={formatearMonto(cobrado)} />
+        <Stat label="Cubierto sin cobro" valor={formatearMonto(cubierto)} />
         <Stat label="Deuda" valor={formatearMonto(deuda)} alerta={deuda > 0} />
       </div>
 

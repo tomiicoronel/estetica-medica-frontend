@@ -74,7 +74,7 @@ Un flujo típico sería:
 9. El sistema calcula automáticamente el monto total del turno.
 10. Cuando el turno se realiza, registra la sesión clínica.
 11. Puede agregar fotos de evolución asociadas a esa sesión.
-12. Registra los pagos recibidos, ya sean completos, parciales, señas o trueques.
+12. Registra los pagos recibidos, ya sean completos, parciales, señas, canjes o turnos sin cargo.
 13. Si tiene horarios no disponibles, bloquea su agenda para evitar turnos en esos rangos.
 14. Toda la información queda asociada a esa profesional y no se mezcla con la de otras.
 
@@ -362,7 +362,8 @@ Los métodos de pago contemplados son:
 - Efectivo.
 - Transferencia.
 - Mercado Pago.
-- Trueque.
+- Canje.
+- Sin cargo.
 
 También se puede indicar si un pago corresponde a una seña.
 
@@ -396,11 +397,13 @@ Esto ayuda a tener un control claro de la parte económica y reduce errores admi
 
 ---
 
-### 13. Trueques
+### 13. Canje y sin cargo
 
-La app contempla el trueque como forma de pago.
+La app contempla el canje (antes trueque) y el turno sin cargo como formas de cubrir un turno.
 
-Si una profesional acepta un intercambio, puede registrarlo y dejar detallado en qué consiste.
+Si una profesional acepta un intercambio, lo registra como canje y deja detallado en qué consiste. Si decide no cobrar el turno, lo registra como sin cargo (sin detalle).
+
+En ambos casos el turno queda cubierto por el total que falta y sin deuda, el precio del servicio se mantiene, pero ese monto no cuenta como dinero cobrado: no suma en la recaudación del día, el total histórico ni el desglose por método. Los pagos siguen visibles en los listados con su etiqueta.
 
 Por ejemplo:
 
@@ -500,7 +503,7 @@ El recorrido completo sería:
 9. Si el turno se realiza, se registra una sesión clínica.
 10. En esa sesión se describe qué tratamiento se hizo y cómo respondió la paciente.
 11. Se pueden asociar fotos de evolución a la sesión.
-12. Se registran pagos, señas, trueques o pagos parciales.
+12. Se registran pagos, señas, canjes, sin cargo o pagos parciales.
 13. El sistema calcula automáticamente si queda deuda.
 14. Si la profesional no está disponible en ciertos horarios, bloquea la agenda para evitar errores.
 
@@ -612,7 +615,7 @@ Esta versión permite gestionar:
 - Fichas de menopausia (escala MRS), con múltiples tomas por paciente y puntajes y severidades calculados automáticamente.
 - Sesiones clínicas.
 - Fotos de pacientes asociadas a sesiones.
-- Pagos, señas, pagos parciales, deudas y trueques.
+- Pagos, señas, pagos parciales, deudas, canjes y turnos sin cargo.
 - Recaudación por día y total histórico de pagos.
 - Resumen del día (dashboard): turnos del día, turnos realizados, pacientes activos y recaudado del día.
 - Próximos turnos por día, sin límite fijo de cantidad.

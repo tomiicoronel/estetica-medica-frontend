@@ -88,5 +88,6 @@ export const ETIQUETA_METODO: Record<MetodoPago, string> = {
   EFECTIVO: 'Efectivo',
   TRANSFERENCIA: 'Transferencia',
   MERCADO_PAGO: 'Mercado Pago',
-  TRUEQUE: 'Trueque',
+  CANJE: 'Canje',
+  SIN_CARGO: 'Sin cargo',
 }
