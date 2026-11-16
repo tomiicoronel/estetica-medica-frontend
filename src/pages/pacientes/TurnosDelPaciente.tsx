@@ -30,7 +30,9 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
     turnoId: UUID
     sesion: SesionClinicaResponse | undefined
   } | null>(null)
-  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
+  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number; sinServicios: boolean } | null>(
+    null,
+  )
   const [aviso, setAviso] = useState<string | null>(null)
 
   const { data: turnos, isPending, error } = useQuery({
@@ -143,8 +145,8 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
             setSesionDe({ turnoId: turnoAbierto.id, sesion })
             setAbierto(null)
           }}
-          onPago={(deuda) => {
-            setPagoDe({ turnoId: turnoAbierto.id, deuda })
+          onPago={(deuda, sinServicios) => {
+            setPagoDe({ turnoId: turnoAbierto.id, deuda, sinServicios })
             setAbierto(null)
           }}
           onEditar={(turno) => {
@@ -173,6 +175,7 @@ export function TurnosDelPaciente({ pacienteId, nombrePaciente, activo }: Props)
         <PagoFormModal
           turnoId={pagoDe.turnoId}
           deuda={pagoDe.deuda}
+          sinServicios={pagoDe.sinServicios}
           onCerrar={() => setPagoDe(null)}
           onListo={(mensaje) => {
             setPagoDe(null)

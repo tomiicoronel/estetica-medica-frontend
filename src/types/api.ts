@@ -445,6 +445,8 @@ export interface ResumenPagoResponse {
   montoPagado: number
   deuda: number
   tieneDeuda: boolean
+  /** Lo pagado por encima del total (p. ej. seña en un turno sin servicios). 0 si no hay. */
+  saldoAFavor: number
   pagos: PagoResponse[]
 }
 

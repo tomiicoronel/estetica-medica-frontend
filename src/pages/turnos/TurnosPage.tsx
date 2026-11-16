@@ -82,7 +82,9 @@ export function TurnosPage() {
     turnoId: UUID
     sesion: SesionClinicaResponse | undefined
   } | null>(null)
-  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
+  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number; sinServicios: boolean } | null>(
+    null,
+  )
   const [aviso, setAviso] = useState<string | null>(null)
   // The agenda never opens on a weekend: Saturday/Sunday start on the next Monday.
   const [fechaInicial] = useState(() => diaHabilInicial(dayjs()))
@@ -380,8 +382,8 @@ export function TurnosPage() {
             setSesionDe({ turnoId: turnoAbierto.id, sesion })
             setAbierto(null)
           }}
-          onPago={(deuda) => {
-            setPagoDe({ turnoId: turnoAbierto.id, deuda })
+          onPago={(deuda, sinServicios) => {
+            setPagoDe({ turnoId: turnoAbierto.id, deuda, sinServicios })
             setAbierto(null)
           }}
           onEditar={(turno) => {
@@ -410,6 +412,7 @@ export function TurnosPage() {
         <PagoFormModal
           turnoId={pagoDe.turnoId}
           deuda={pagoDe.deuda}
+          sinServicios={pagoDe.sinServicios}
           onCerrar={() => setPagoDe(null)}
           onListo={(mensaje) => {
             setPagoDe(null)

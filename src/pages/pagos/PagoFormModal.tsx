@@ -8,23 +8,24 @@ import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Textarea } from '../../components/ui/Textarea'
 import { ETIQUETA_METODO, formatearMonto } from '../../lib/formato'
-import { esMetodoExento } from '../../lib/pagos'
+import { esMetodoExento, metodosDisponibles, validarMontoContraDeuda } from '../../lib/pagos'
 import type { MetodoPago, UUID } from '../../types/api'
 
 interface Props {
   turnoId: UUID
   /** Lo que falta pagar del turno, para avisar antes de que lo rechace el backend. */
   deuda: number
+  /** El turno todavía no tiene servicios: se acepta una seña sin tope de monto. */
+  sinServicios?: boolean
   onCerrar: () => void
   onListo: (mensaje: string) => void
 }
 
-const METODOS: MetodoPago[] = ['EFECTIVO', 'TRANSFERENCIA', 'MERCADO_PAGO', 'CANJE', 'SIN_CARGO']
-
-export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
+export function PagoFormModal({ turnoId, deuda, sinServicios = false, onCerrar, onListo }: Props) {
+  const metodos = metodosDisponibles(deuda)
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO')
   const [monto, setMonto] = useState('')
-  const [esSena, setEsSena] = useState(false)
+  const [esSena, setEsSena] = useState(sinServicios)
   const [detalleCanje, setDetalleCanje] = useState('')
   const [errorLocal, setErrorLocal] = useState<string | null>(null)
 
@@ -59,8 +60,9 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
       return
     }
     // El backend también lo valida; acá se avisa antes de mandar el request.
-    if (valor > deuda) {
-      setErrorLocal(`El monto no puede superar la deuda del turno (${formatearMonto(deuda)}).`)
+    const errorMonto = validarMontoContraDeuda(valor, deuda, sinServicios)
+    if (errorMonto) {
+      setErrorLocal(errorMonto)
       return
     }
     if (esCanje && detalleCanje.trim() === '') {
@@ -78,7 +80,11 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
   return (
     <Modal
       titulo="Registrar pago"
-      subtitulo={`Podés registrar pagos parciales. Falta pagar ${formatearMonto(deuda)}.`}
+      subtitulo={
+        sinServicios
+          ? 'El turno todavía no tiene servicios: podés registrar una seña. Lo pagado queda como saldo a favor.'
+          : `Podés registrar pagos parciales. Falta pagar ${formatearMonto(deuda)}.`
+      }
       onCerrar={onCerrar}
       pie={
         <>
@@ -117,7 +123,7 @@ export function PagoFormModal({ turnoId, deuda, onCerrar, onListo }: Props) {
               onChange={(e) => setMetodo(e.target.value as MetodoPago)}
               className="w-full rounded-control border border-sand-300 bg-white px-[13px] py-[11px] text-sm"
             >
-              {METODOS.map((m) => (
+              {metodos.map((m) => (
                 <option key={m} value={m}>
                   {ETIQUETA_METODO[m]}
                 </option>
