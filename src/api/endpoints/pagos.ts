@@ -1,9 +1,11 @@
 import { api, query } from '../client'
 import type {
+  DevolucionSaldoRequest,
   DiaPagosResumenResponse,
   PageResponse,
   PagoRequest,
   PagoResponse,
+  TrasladoSaldoRequest,
   UUID,
 } from '../../types/api'
 
@@ -41,7 +43,23 @@ export function registrarPago(turnoId: UUID, datos: PagoRequest): Promise<PagoRe
   return api.post<PagoResponse>(`/api/turnos/${turnoId}/pagos`, datos)
 }
 
-/** El backend lo rechaza si el turno está REALIZADO. */
+/** Devuelve a la paciente parte o todo el saldo a favor: resta de la caja. */
+export function devolverSaldo(turnoId: UUID, datos: DevolucionSaldoRequest): Promise<PagoResponse> {
+  return api.post<PagoResponse>(`/api/turnos/${turnoId}/saldo/devolucion`, datos)
+}
+
+/**
+ * Pasa el saldo a favor a otro turno de la misma paciente. Es un movimiento
+ * interno: no es un pago nuevo y la caja no cambia.
+ */
+export function trasladarSaldo(turnoId: UUID, datos: TrasladoSaldoRequest): Promise<PagoResponse> {
+  return api.post<PagoResponse>(`/api/turnos/${turnoId}/saldo/traslado`, datos)
+}
+
+/**
+ * El backend lo rechaza si el turno está REALIZADO o si dejaría lo pagado en
+ * negativo. Borrar una mitad de un traslado borra las dos.
+ */
 export function eliminarPago(id: UUID): Promise<void> {
   return api.delete<void>(`/api/pagos/${id}`)
 }

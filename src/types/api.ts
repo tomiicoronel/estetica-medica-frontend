@@ -10,7 +10,18 @@ export type LocalDateTime = string // "2026-06-01T10:30:00"
 
 export type RolUsuario = 'ADMIN' | 'PROFESIONAL' | 'PACIENTE'
 export type EstadoTurno = 'PENDIENTE' | 'CONFIRMADO' | 'REALIZADO' | 'CANCELADO'
-export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'MERCADO_PAGO' | 'CANJE' | 'SIN_CARGO'
+/**
+ * DEVOLUCION y TRASLADO resuelven el saldo a favor de un turno: solo se crean
+ * desde `/api/turnos/{id}/saldo/...`, nunca como un pago común.
+ */
+export type MetodoPago =
+  | 'EFECTIVO'
+  | 'TRANSFERENCIA'
+  | 'MERCADO_PAGO'
+  | 'CANJE'
+  | 'SIN_CARGO'
+  | 'DEVOLUCION'
+  | 'TRASLADO'
 export type SeveridadMrs = 'NINGUNO_MINIMO' | 'LEVE' | 'MODERADO' | 'SEVERO'
 
 /** Puntaje de un síntoma MRS: 0 = ninguno, 1 = leve, 2 = moderado, 3 = grave, 4 = extremadamente grave. */
@@ -434,9 +445,23 @@ export interface PagoResponse {
   esCanje: boolean
   esSinCargo: boolean
   detalleCanje?: string
+  /** Solo en TRASLADO: el turno del otro lado del movimiento. */
+  turnoRelacionadoId?: UUID
+  /** Solo en TRASLADO: la fecha del turno del otro lado. */
+  turnoRelacionadoFechaHora?: LocalDateTime
   fecha: LocalDateTime
   creadoEn: LocalDateTime
   actualizadoEn: LocalDateTime
+}
+
+export interface DevolucionSaldoRequest {
+  monto: number
+  fecha?: LocalDateTime
+}
+
+export interface TrasladoSaldoRequest {
+  turnoDestinoId: UUID
+  monto: number
 }
 
 export interface ResumenPagoResponse {

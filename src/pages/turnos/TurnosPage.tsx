@@ -49,6 +49,7 @@ import {
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
+import { SaldoAFavorModal, type AccionSaldo } from '../pagos/SaldoAFavorModal'
 import { SesionFormModal } from '../sesiones/SesionFormModal'
 import { TurnoDetalleModal } from './TurnoDetalleModal'
 import { TurnoFormModal } from './TurnoFormModal'
@@ -77,6 +78,11 @@ export function TurnosPage() {
   const [creando, setCreando] = useState(false)
   const [creationDraft, setCreationDraft] = useState<CalendarDraft | null>(null)
   const [editando, setEditando] = useState<TurnoResponse | null>(null)
+  const [saldoDe, setSaldoDe] = useState<{
+    turno: TurnoResponse
+    saldo: number
+    accion: AccionSaldo
+  } | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
   const [sesionDe, setSesionDe] = useState<{
     turnoId: UUID
@@ -386,6 +392,10 @@ export function TurnosPage() {
             setPagoDe({ turnoId: turnoAbierto.id, deuda, sinServicios })
             setAbierto(null)
           }}
+          onSaldo={(accion, saldo) => {
+            setSaldoDe({ turno: turnoAbierto, saldo, accion })
+            setAbierto(null)
+          }}
           onEditar={(turno) => {
             setEditando(turno)
             setAbierto(null)
@@ -416,6 +426,19 @@ export function TurnosPage() {
           onCerrar={() => setPagoDe(null)}
           onListo={(mensaje) => {
             setPagoDe(null)
+            setAviso(mensaje)
+          }}
+        />
+      )}
+
+      {saldoDe && (
+        <SaldoAFavorModal
+          turno={saldoDe.turno}
+          saldo={saldoDe.saldo}
+          accion={saldoDe.accion}
+          onCerrar={() => setSaldoDe(null)}
+          onListo={(mensaje) => {
+            setSaldoDe(null)
             setAviso(mensaje)
           }}
         />

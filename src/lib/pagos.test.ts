@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cuentaEnCaja,
   esMetodoExento,
+  etiquetaMovimiento,
   metodosDisponibles,
   puedeRegistrarPago,
   sumarCobrado,
@@ -84,5 +86,64 @@ describe('metodosDisponibles', () => {
 
   it('sin deuda oculta canje y sin cargo, porque no hay nada que eximir', () => {
     expect(metodosDisponibles(0)).toEqual(['EFECTIVO', 'TRANSFERENCIA', 'MERCADO_PAGO'])
+  })
+})
+
+describe('movimientos de saldo a favor', () => {
+  it('DEVOLUCION cuenta en caja (resta) y TRASLADO no', () => {
+    expect(cuentaEnCaja('DEVOLUCION')).toBe(true)
+    expect(cuentaEnCaja('TRASLADO')).toBe(false)
+    expect(cuentaEnCaja('EFECTIVO')).toBe(true)
+    expect(cuentaEnCaja('CANJE')).toBe(false)
+  })
+
+  it('DEVOLUCION y TRASLADO no son métodos exentos de deuda', () => {
+    expect(esMetodoExento('DEVOLUCION')).toBe(false)
+    expect(esMetodoExento('TRASLADO')).toBe(false)
+  })
+
+  it('sumarCobrado resta las devoluciones e ignora los traslados', () => {
+    const pagos = [
+      { metodo: 'EFECTIVO' as const, monto: 10000 },
+      { metodo: 'DEVOLUCION' as const, monto: -4000 },
+      // Solo la mitad saliente, como en la lista de pagos de un turno.
+      { metodo: 'TRASLADO' as const, monto: -6000 },
+    ]
+    expect(sumarCobrado(pagos)).toBe(6000)
+  })
+
+  it('sumarCubiertoSinCobro no incluye devoluciones ni traslados', () => {
+    expect(
+      sumarCubiertoSinCobro([
+        { metodo: 'SIN_CARGO', monto: 3000 },
+        { metodo: 'DEVOLUCION', monto: -1000 },
+        { metodo: 'TRASLADO', monto: 2000 },
+      ]),
+    ).toBe(3000)
+  })
+
+  it('etiqueta un traslado saliente con la fecha del turno destino', () => {
+    expect(
+      etiquetaMovimiento({
+        metodo: 'TRASLADO',
+        monto: -6000,
+        turnoRelacionadoFechaHora: '2026-12-15T10:00:00',
+      }),
+    ).toBe('Traslado al turno del 15/12/2026')
+  })
+
+  it('etiqueta un traslado entrante con la fecha del turno origen', () => {
+    expect(
+      etiquetaMovimiento({
+        metodo: 'TRASLADO',
+        monto: 6000,
+        turnoRelacionadoFechaHora: '2026-11-20T09:30:00',
+      }),
+    ).toBe('Traslado desde el turno del 20/11/2026')
+  })
+
+  it('el resto de los métodos usa su etiqueta normal', () => {
+    expect(etiquetaMovimiento({ metodo: 'DEVOLUCION', monto: -4000 })).toBe('Devolución')
+    expect(etiquetaMovimiento({ metodo: 'EFECTIVO', monto: 4000 })).toBe('Efectivo')
   })
 })

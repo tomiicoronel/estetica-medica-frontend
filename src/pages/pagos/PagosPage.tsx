@@ -6,9 +6,8 @@ import { listarTurnos } from '../../api/endpoints/turnos'
 import { PageHeader } from '../../components/PageHeader'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { formatearFecha } from '../../lib/fecha'
-import { sumarCobrado } from '../../lib/pagos'
+import { etiquetaMovimiento, sumarCobrado } from '../../lib/pagos'
 import {
-  ETIQUETA_METODO,
   aFechaISO,
   formatearHora,
   formatearMonto,
@@ -314,6 +313,8 @@ const ESTILO_METODO: Record<string, string> = {
   MERCADO_PAGO: 'bg-indigo-100 text-indigo-800',
   CANJE: 'bg-amber-100 text-amber-800',
   SIN_CARGO: 'bg-sand-200 text-sand-700',
+  DEVOLUCION: 'bg-rose-100 text-rose-800',
+  TRASLADO: 'bg-sand-200 text-sand-700',
 }
 
 function BadgeMetodo({ pago }: { pago: PagoResponse }) {
@@ -322,7 +323,7 @@ function BadgeMetodo({ pago }: { pago: PagoResponse }) {
       title={pago.esCanje ? oGuion(pago.detalleCanje) : undefined}
       className={`inline-flex w-fit items-center justify-self-start rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${ESTILO_METODO[pago.metodo]}`}
     >
-      {ETIQUETA_METODO[pago.metodo]}
+      {etiquetaMovimiento(pago)}
     </span>
   )
 }
