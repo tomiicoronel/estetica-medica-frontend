@@ -9,9 +9,9 @@ import { Button } from '../../components/ui/Button'
 import { ConfirmarModal } from '../../components/ui/ConfirmarModal'
 import { Modal } from '../../components/ui/Modal'
 import { formatearFecha } from '../../lib/fecha'
+import { etiquetaMovimiento, puedeRegistrarPago } from '../../lib/pagos'
 import {
   ETIQUETA_ESTADO,
-  ETIQUETA_METODO,
   formatearHora,
   formatearMonto,
   oGuion,
@@ -29,8 +29,13 @@ interface Props {
    * modal para no anidar diálogos: se cierra éste y se abre aquél.
    */
   onSesion: (sesion: SesionClinicaResponse | undefined) => void
-  /** Abre el formulario de pago, con lo que falta pagar del turno. */
-  onPago: (deuda: number) => void
+  /**
+   * Abre el formulario de pago, con lo que falta pagar del turno y si todavía
+   * no tiene servicios (en ese caso se acepta una seña sin tope).
+   */
+  onPago: (deuda: number, sinServicios: boolean) => void
+  /** Abre el formulario para devolver o pasar a otro turno el saldo a favor. */
+  onSaldo: (accion: 'devolver' | 'trasladar', saldo: number) => void
   /** Abre `TurnoFormModal` en modo edición para este turno. */
   onEditar: (turno: TurnoResponse) => void
   /** El turno se eliminó: la pantalla cierra el modal y muestra el aviso. */
@@ -61,6 +66,7 @@ export function TurnoDetalleModal({
   onListo,
   onSesion,
   onPago,
+  onSaldo,
   onEditar,
   onEliminado,
 }: Props) {
@@ -198,6 +204,14 @@ export function TurnoDetalleModal({
                     {formatearMonto(pagos.data.deuda)}
                   </span>
                 </span>
+                {pagos.data.saldoAFavor > 0 && (
+                  <span className="text-sand-700">
+                    Saldo a favor{' '}
+                    <span className="font-semibold text-sage-700">
+                      {formatearMonto(pagos.data.saldoAFavor)}
+                    </span>
+                  </span>
+                )}
               </div>
 
               {pagos.data.pagos.length > 0 && (
@@ -205,7 +219,7 @@ export function TurnoDetalleModal({
                   {pagos.data.pagos.map((pago) => (
                     <div key={pago.id} className="flex items-center gap-2.5 text-[13px]">
                       <span className="text-sand-700">{formatearFecha(pago.fecha)}</span>
-                      <span className="text-sand-700">{ETIQUETA_METODO[pago.metodo]}</span>
+                      <span className="text-sand-700">{etiquetaMovimiento(pago)}</span>
                       {pago.esSena && (
                         <span className="rounded-full bg-sand-200 px-2 py-0.5 text-[10.5px] font-semibold text-sand-700">
                           Seña
@@ -220,10 +234,29 @@ export function TurnoDetalleModal({
                 </div>
               )}
 
-              {pagos.data.tieneDeuda && (
+              {pagos.data.saldoAFavor > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSaldo('devolver', pagos.data.saldoAFavor)}
+                    className="min-h-11 rounded-control border border-sand-300 bg-white px-[15px] text-[13px] font-semibold text-sage-700 transition-colors hover:bg-sage-50 app:min-h-0 app:py-2"
+                  >
+                    Devolver saldo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSaldo('trasladar', pagos.data.saldoAFavor)}
+                    className="min-h-11 rounded-control border border-sand-300 bg-white px-[15px] text-[13px] font-semibold text-sage-700 transition-colors hover:bg-sage-50 app:min-h-0 app:py-2"
+                  >
+                    Pasar a otro turno
+                  </button>
+                </div>
+              )}
+
+              {puedeRegistrarPago(pagos.data, turno.servicios.length) && (
                 <button
                   type="button"
-                  onClick={() => onPago(pagos.data.deuda)}
+                  onClick={() => onPago(pagos.data.deuda, turno.servicios.length === 0)}
                   className="min-h-11 self-start rounded-control border border-sand-300 bg-white px-[15px] text-[13px] font-semibold text-sage-700 transition-colors hover:bg-sage-50 app:min-h-0 app:py-2"
                 >
                   Registrar pago

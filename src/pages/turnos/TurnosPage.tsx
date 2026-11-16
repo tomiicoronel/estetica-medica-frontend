@@ -49,6 +49,7 @@ import {
 } from '../../lib/calendario'
 import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
 import { PagoFormModal } from '../pagos/PagoFormModal'
+import { SaldoAFavorModal, type AccionSaldo } from '../pagos/SaldoAFavorModal'
 import { SesionFormModal } from '../sesiones/SesionFormModal'
 import { TurnoDetalleModal } from './TurnoDetalleModal'
 import { TurnoFormModal } from './TurnoFormModal'
@@ -77,12 +78,19 @@ export function TurnosPage() {
   const [creando, setCreando] = useState(false)
   const [creationDraft, setCreationDraft] = useState<CalendarDraft | null>(null)
   const [editando, setEditando] = useState<TurnoResponse | null>(null)
+  const [saldoDe, setSaldoDe] = useState<{
+    turno: TurnoResponse
+    saldo: number
+    accion: AccionSaldo
+  } | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
   const [sesionDe, setSesionDe] = useState<{
     turnoId: UUID
     sesion: SesionClinicaResponse | undefined
   } | null>(null)
-  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number } | null>(null)
+  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number; sinServicios: boolean } | null>(
+    null,
+  )
   const [aviso, setAviso] = useState<string | null>(null)
   // The agenda never opens on a weekend: Saturday/Sunday start on the next Monday.
   const [fechaInicial] = useState(() => diaHabilInicial(dayjs()))
@@ -380,8 +388,12 @@ export function TurnosPage() {
             setSesionDe({ turnoId: turnoAbierto.id, sesion })
             setAbierto(null)
           }}
-          onPago={(deuda) => {
-            setPagoDe({ turnoId: turnoAbierto.id, deuda })
+          onPago={(deuda, sinServicios) => {
+            setPagoDe({ turnoId: turnoAbierto.id, deuda, sinServicios })
+            setAbierto(null)
+          }}
+          onSaldo={(accion, saldo) => {
+            setSaldoDe({ turno: turnoAbierto, saldo, accion })
             setAbierto(null)
           }}
           onEditar={(turno) => {
@@ -410,9 +422,23 @@ export function TurnosPage() {
         <PagoFormModal
           turnoId={pagoDe.turnoId}
           deuda={pagoDe.deuda}
+          sinServicios={pagoDe.sinServicios}
           onCerrar={() => setPagoDe(null)}
           onListo={(mensaje) => {
             setPagoDe(null)
+            setAviso(mensaje)
+          }}
+        />
+      )}
+
+      {saldoDe && (
+        <SaldoAFavorModal
+          turno={saldoDe.turno}
+          saldo={saldoDe.saldo}
+          accion={saldoDe.accion}
+          onCerrar={() => setSaldoDe(null)}
+          onListo={(mensaje) => {
+            setSaldoDe(null)
             setAviso(mensaje)
           }}
         />

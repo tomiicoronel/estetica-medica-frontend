@@ -4,8 +4,8 @@ import { listarTurnosDePaciente } from '../../api/endpoints/turnos'
 import { listarPagosDeTurno } from '../../api/endpoints/pagos'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
 import { formatearFecha } from '../../lib/fecha'
-import { ETIQUETA_METODO, formatearMonto } from '../../lib/formato'
-import { sumarCobrado, sumarCubiertoSinCobro } from '../../lib/pagos'
+import { formatearMonto } from '../../lib/formato'
+import { etiquetaMovimiento, sumarCobrado, sumarCubiertoSinCobro } from '../../lib/pagos'
 import type { PagoResponse, TurnoResponse, UUID } from '../../types/api'
 
 /**
@@ -73,7 +73,7 @@ export function PagosDelPaciente({ pacienteId }: { pacienteId: UUID }) {
               {turno.servicios.map((s) => s.nombre).join(' · ') || 'Sin servicios'}
             </span>
             <span className="text-[12.5px] text-sand-700">
-              {ETIQUETA_METODO[pago.metodo]}
+              {etiquetaMovimiento(pago)}
               {pago.esSena ? ' · seña' : ''}
             </span>
             <span className="text-sm font-semibold text-sage-800">
