@@ -19,6 +19,8 @@ function useAhora(): Date {
 interface Props {
   turnos: TurnoResponse[]
   nombrePorPaciente: Map<string, string>
+  /** Opens the appointment detail, the same one the Turnos page uses. */
+  onAbrir: (turnoId: string) => void
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * never overlap however short or packed the appointments are. The full grid
  * lives in the Turnos page.
  */
-export function AgendaDeHoy({ turnos, nombrePorPaciente }: Props) {
+export function AgendaDeHoy({ turnos, nombrePorPaciente, onAbrir }: Props) {
   const ahora = useAhora()
   const { filas, indiceAhora } = useMemo(() => armarAgendaDelDia(turnos, ahora), [turnos, ahora])
 
@@ -53,8 +55,10 @@ export function AgendaDeHoy({ turnos, nombrePorPaciente }: Props) {
               </div>
             )}
 
-            <div
-              className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 ${
+            <button
+              type="button"
+              onClick={() => onAbrir(turno.id)}
+              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-sage-50 focus-visible:outline-2 focus-visible:outline-sage-500 ${
                 enCurso ? 'bg-sage-50' : ''
               } ${pasado ? 'opacity-55' : ''} ${
                 i > 0 && i !== indiceAhora ? 'border-t border-sand-200' : ''
@@ -96,7 +100,7 @@ export function AgendaDeHoy({ turnos, nombrePorPaciente }: Props) {
                 </span>
               )}
               <BadgeEstadoTurno estado={turno.estado} />
-            </div>
+            </button>
           </li>
         )
       })}
