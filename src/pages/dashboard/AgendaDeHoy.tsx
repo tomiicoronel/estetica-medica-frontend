@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BadgeEstadoTurno } from '../../components/ui/Badge'
-import {
-  asignarColumnas,
-  desplazamientoAhora,
-  posicionBloque,
-  rangoHorasVisibles,
-} from '../../lib/agendaDia'
+import { armarAgendaDelDia } from '../../lib/agendaDia'
 import { COLORES_ESTADO } from '../../lib/calendario'
-import { formatearHora } from '../../lib/formato'
+import { formatearDuracion, formatearHora } from '../../lib/formato'
 import type { TurnoResponse } from '../../types/api'
 
-const ALTURA_HORA = 64
-/** Blocks shorter than this only have room for the first line. */
-const ALTO_CON_DETALLE = 46
 const UN_MINUTO_MS = 60_000
-
-function minutosDeInicio(iso: string): number {
-  const fecha = new Date(iso)
-  return fecha.getHours() * 60 + fecha.getMinutes()
-}
 
 function useAhora(): Date {
   const [ahora, setAhora] = useState(() => new Date())
@@ -34,99 +21,85 @@ interface Props {
   nombrePorPaciente: Map<string, string>
 }
 
-/** Day-view timeline: hour gutter, hour lines and one block per appointment. */
+/**
+ * Today's appointments as a chronological list: one row per appointment with
+ * its time, patient, services and state. Unlike a proportional time grid, rows
+ * never overlap however short or packed the appointments are. The full grid
+ * lives in the Turnos page.
+ */
 export function AgendaDeHoy({ turnos, nombrePorPaciente }: Props) {
   const ahora = useAhora()
-  const rango = useMemo(() => rangoHorasVisibles(turnos), [turnos])
-
-  const bloques = useMemo(() => {
-    const columnas = asignarColumnas(
-      turnos.map((t) => {
-        const inicio = minutosDeInicio(t.fechaHora)
-        const duracion = Math.max(0, (Date.parse(t.fechaHoraFin) - Date.parse(t.fechaHora)) / 60000)
-        return { inicio, fin: inicio + duracion }
-      }),
-    )
-    return turnos.flatMap((turno, i) => {
-      const posicion = posicionBloque(turno.fechaHora, turno.fechaHoraFin, rango, ALTURA_HORA)
-      return posicion ? [{ turno, posicion, ...columnas[i] }] : []
-    })
-  }, [turnos, rango])
-
-  const horas = Array.from(
-    { length: rango.horaFin - rango.horaInicio },
-    (_, i) => rango.horaInicio + i,
-  )
-  const lineaAhora = desplazamientoAhora(ahora, rango, ALTURA_HORA)
+  const { filas, indiceAhora } = useMemo(() => armarAgendaDelDia(turnos, ahora), [turnos, ahora])
 
   return (
-    <div className="px-3 py-4 app:px-5">
-      <div className="relative" style={{ height: horas.length * ALTURA_HORA }}>
-        {horas.map((hora) => (
-          <div
-            key={hora}
-            className="absolute inset-x-0 flex items-start"
-            style={{ top: (hora - rango.horaInicio) * ALTURA_HORA }}
-          >
-            <span className="w-11 flex-none -translate-y-1/2 text-[11.5px] tabular-nums text-sand-500">
-              {String(hora).padStart(2, '0')}:00
-            </span>
-            <span className="h-px flex-1 bg-sand-200" />
-          </div>
-        ))}
+    // role="list": Safari drops list semantics from styled lists.
+    <ol role="list" className="flex flex-col px-3 py-2 app:px-5">
+      {filas.map(({ turno, pasado, enCurso, duracionMinutos }, i) => {
+        const servicios = turno.servicios.map((s) => s.nombre).join(' · ') || 'Sin servicios'
+        const cancelado = turno.estado === 'CANCELADO'
 
-        <div className="absolute inset-y-0 left-12 right-0">
-          {bloques.map(({ turno, posicion, columna, total }) => {
-            const colores = COLORES_ESTADO[turno.estado]
-            const servicios = turno.servicios.map((s) => s.nombre).join(', ')
-            return (
+        return (
+          <li key={turno.id} className="flex flex-col">
+            {i === indiceAhora && (
               <div
-                key={turno.id}
-                className="absolute min-w-0 overflow-hidden rounded-lg border-l-[3px] px-2.5 py-1.5"
-                style={{
-                  top: posicion.top,
-                  height: posicion.height,
-                  left: `calc(${(columna / total) * 100}% + 4px)`,
-                  width: `calc(${100 / total}% - 8px)`,
-                  backgroundColor: colores.backgroundColor,
-                  color: colores.color,
-                  borderLeftColor: colores.linea,
-                }}
+                aria-hidden="true"
+                className="flex items-center gap-2 py-1.5 text-[11.5px] font-semibold tabular-nums"
+                style={{ color: 'var(--color-clay-500)' }}
               >
-                <div className="flex items-start gap-2">
-                  <span
-                    className={`min-w-0 flex-1 truncate text-[13px] font-semibold ${
-                      turno.estado === 'CANCELADO' ? 'line-through' : ''
-                    }`}
-                  >
-                    {nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'}
+                <span className="size-2 flex-none rounded-full bg-current" />
+                Ahora ·{' '}
+                {ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                <span className="h-px flex-1 bg-current" />
+              </div>
+            )}
+
+            <div
+              className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 ${
+                enCurso ? 'bg-sage-50' : ''
+              } ${pasado ? 'opacity-55' : ''} ${
+                i > 0 && i !== indiceAhora ? 'border-t border-sand-200' : ''
+              }`}
+            >
+              <div className="flex w-14 flex-none flex-col tabular-nums">
+                <time dateTime={turno.fechaHora} className="text-[14px] font-semibold text-sage-800">
+                  {formatearHora(turno.fechaHora)}
+                </time>
+                {duracionMinutos > 0 && (
+                  <span className="text-[11.5px] text-sand-500">
+                    {formatearDuracion(duracionMinutos)}
                   </span>
-                  <span className="flex-none rounded-full bg-white/70">
-                    <BadgeEstadoTurno estado={turno.estado} />
-                  </span>
-                </div>
-                {posicion.height >= ALTO_CON_DETALLE && (
-                  <div className="truncate text-[11.5px] opacity-80">
-                    {formatearHora(turno.fechaHora)} – {formatearHora(turno.fechaHoraFin)}
-                    {servicios && ` · ${servicios}`}
-                  </div>
                 )}
               </div>
-            )
-          })}
 
-          {lineaAhora !== null && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-              style={{ top: lineaAhora, color: 'var(--color-clay-500)' }}
-            >
-              <span className="-ml-1 size-2 flex-none rounded-full bg-current" />
-              <span className="h-px flex-1 bg-current" />
+              <span
+                aria-hidden="true"
+                className="h-9 w-[3px] flex-none rounded-full"
+                style={{ backgroundColor: COLORES_ESTADO[turno.estado].linea }}
+              />
+
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span
+                  className={`truncate text-[14px] font-semibold text-sage-800 ${
+                    cancelado ? 'line-through' : ''
+                  }`}
+                >
+                  {nombrePorPaciente.get(turno.pacienteId) ?? 'Paciente'}
+                  {enCurso && <span className="sr-only"> (en curso)</span>}
+                  {pasado && <span className="sr-only"> (terminado)</span>}
+                </span>
+                <span className="truncate text-[12.5px] text-sand-700">{servicios}</span>
+              </div>
+
+              {enCurso && (
+                <span className="hidden flex-none text-[11.5px] font-semibold text-sage-700 app:inline">
+                  En curso
+                </span>
+              )}
+              <BadgeEstadoTurno estado={turno.estado} />
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          </li>
+        )
+      })}
+    </ol>
   )
 }

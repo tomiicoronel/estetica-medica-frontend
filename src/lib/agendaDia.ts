@@ -1,111 +1,61 @@
 /**
- * Pure layout helpers for the day-view agenda on the dashboard.
- * Everything is derived from `LocalDateTime` strings (parsed as local time,
- * see `fecha.ts`) so the JSX only has to apply the returned numbers.
+ * Pure helpers for the dashboard agenda (today's list) and the shared column
+ * layout used by the Turnos calendar. Dates are `LocalDateTime` strings,
+ * parsed as local time (see `fecha.ts`).
  */
-
-export interface RangoHoras {
-  /** First visible hour (0-23). */
-  horaInicio: number
-  /** Last visible hour, exclusive (1-24). */
-  horaFin: number
-}
-
-export interface TurnoConHorario {
-  fechaHora: string
-  fechaHoraFin: string
-}
-
-export interface Posicion {
-  top: number
-  height: number
-}
 
 export interface Columna {
   columna: number
   total: number
 }
 
-export const HORA_INICIO_POR_DEFECTO = 8
-export const HORA_FIN_POR_DEFECTO = 18
-/** Keeps zero-length or very short appointments visible and clickable. */
-export const ALTO_MINIMO_BLOQUE = 24
+export interface TurnoAgenda {
+  id: string
+  fechaHora: string
+  fechaHoraFin: string
+}
 
-const MINUTOS_POR_HORA = 60
-const MINUTOS_POR_DIA = 24 * MINUTOS_POR_HORA
+export interface FilaAgenda<T extends TurnoAgenda> {
+  turno: T
+  /** Already finished: shown dimmed. */
+  pasado: boolean
+  /** Started and not finished yet. */
+  enCurso: boolean
+  duracionMinutos: number
+}
 
-/** Minutes since the local midnight of `fecha`. */
-function minutosDesdeMedianoche(fecha: Date): number {
-  return fecha.getHours() * MINUTOS_POR_HORA + fecha.getMinutes()
+export interface AgendaDelDia<T extends TurnoAgenda> {
+  filas: FilaAgenda<T>[]
+  /**
+   * Index of the first row that is not finished, where the "now" marker goes.
+   * `null` when nothing has finished yet (the marker would only add noise at the
+   * top) or when everything has finished.
+   */
+  indiceAhora: number | null
 }
 
 /**
- * Whole-hour range that contains every valid appointment, never narrower than
- * 08:00-18:00. Appointments crossing midnight cap the range at 24.
+ * Today's appointments in chronological order, flagged against `ahora`. A list
+ * never overlaps, whatever the duration of each appointment.
  */
-export function rangoHorasVisibles(turnos: TurnoConHorario[]): RangoHoras {
-  let horaInicio = HORA_INICIO_POR_DEFECTO
-  let horaFin = HORA_FIN_POR_DEFECTO
+export function armarAgendaDelDia<T extends TurnoAgenda>(turnos: T[], ahora: Date): AgendaDelDia<T> {
+  const ahoraMs = ahora.getTime()
+  const filas = [...turnos]
+    .sort((a, b) => a.fechaHora.localeCompare(b.fechaHora) || a.id.localeCompare(b.id))
+    .map((turno) => {
+      const inicio = Date.parse(turno.fechaHora)
+      const fin = Date.parse(turno.fechaHoraFin)
+      const duracionMinutos = Number.isNaN(inicio) || Number.isNaN(fin)
+        ? 0
+        : Math.max(0, Math.round((fin - inicio) / 60000))
+      const pasado = !Number.isNaN(fin) && fin <= ahoraMs
+      const enCurso = !pasado && !Number.isNaN(inicio) && inicio <= ahoraMs
+      return { turno, pasado, enCurso, duracionMinutos }
+    })
 
-  for (const turno of turnos) {
-    const inicio = new Date(turno.fechaHora)
-    const fin = new Date(turno.fechaHoraFin)
-    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) continue
-
-    const minutosInicio = minutosDesdeMedianoche(inicio)
-    const minutosFin = minutosInicio + Math.max(0, (fin.getTime() - inicio.getTime()) / 60000)
-
-    horaInicio = Math.min(horaInicio, Math.floor(minutosInicio / MINUTOS_POR_HORA))
-    horaFin = Math.max(horaFin, Math.ceil(Math.min(minutosFin, MINUTOS_POR_DIA) / MINUTOS_POR_HORA))
-  }
-
-  return { horaInicio, horaFin }
-}
-
-/**
- * Vertical placement (px) of an appointment inside the visible range.
- * Clips to the range, enforces a minimum height and returns `null` when the
- * appointment is entirely outside the range or has invalid dates.
- */
-export function posicionBloque(
-  fechaHora: string,
-  fechaHoraFin: string,
-  rango: RangoHoras,
-  alturaHora: number,
-): Posicion | null {
-  const inicio = new Date(fechaHora)
-  const fin = new Date(fechaHoraFin)
-  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) return null
-
-  const minutosInicio = minutosDesdeMedianoche(inicio)
-  const minutosFin = minutosInicio + Math.max(0, (fin.getTime() - inicio.getTime()) / 60000)
-  const desde = rango.horaInicio * MINUTOS_POR_HORA
-  const hasta = rango.horaFin * MINUTOS_POR_HORA
-
-  if (minutosFin <= desde && minutosInicio < desde) return null
-  if (minutosInicio >= hasta) return null
-
-  const porMinuto = alturaHora / MINUTOS_POR_HORA
-  const top = (Math.max(minutosInicio, desde) - desde) * porMinuto
-  const bottom = (Math.min(minutosFin, hasta) - desde) * porMinuto
-  const tope = (hasta - desde) * porMinuto
-
-  const height = Math.max(bottom - top, ALTO_MINIMO_BLOQUE)
-  // A minimum-height block near the bottom must not overflow the timeline.
-  return { top: Math.min(top, Math.max(tope - height, 0)), height }
-}
-
-/** Offset (px) of the "now" line, or `null` when `ahora` is outside the range. */
-export function desplazamientoAhora(
-  ahora: Date,
-  rango: RangoHoras,
-  alturaHora: number,
-): number | null {
-  const minutos = minutosDesdeMedianoche(ahora)
-  const desde = rango.horaInicio * MINUTOS_POR_HORA
-  const hasta = rango.horaFin * MINUTOS_POR_HORA
-  if (minutos < desde || minutos >= hasta) return null
-  return ((minutos - desde) * alturaHora) / MINUTOS_POR_HORA
+  const primeroPendiente = filas.findIndex((fila) => !fila.pasado)
+  const indiceAhora = primeroPendiente > 0 ? primeroPendiente : null
+  return { filas, indiceAhora }
 }
 
 /**
