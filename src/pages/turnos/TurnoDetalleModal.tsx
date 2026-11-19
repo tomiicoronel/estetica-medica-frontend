@@ -10,6 +10,7 @@ import { ConfirmarModal } from '../../components/ui/ConfirmarModal'
 import { Modal } from '../../components/ui/Modal'
 import { formatearFecha } from '../../lib/fecha'
 import { etiquetaMovimiento, puedeRegistrarPago } from '../../lib/pagos'
+import { esTurnoEditable } from '../../lib/turnos'
 import {
   ETIQUETA_ESTADO,
   formatearHora,
@@ -41,8 +42,6 @@ interface Props {
   /** El turno se eliminó: la pantalla cierra el modal y muestra el aviso. */
   onEliminado: (mensaje: string) => void
 }
-
-const EDITABLES: EstadoTurno[] = ['PENDIENTE', 'CONFIRMADO']
 
 /**
  * A qué estado se puede pasar desde cada estado.
@@ -102,7 +101,7 @@ export function TurnoDetalleModal({
     },
   })
 
-  const editable = EDITABLES.includes(turno.estado)
+  const editable = esTurnoEditable(turno.estado)
 
   // Sólo se ofrece cuando ya se sabe con certeza que no hay nada que perder:
   // pagos cargados y en cero, y sin sesión clínica asociada.
