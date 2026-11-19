@@ -1,10 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { getDashboard, getResumenDiarioPagos } from '../../api/endpoints/dashboard'
 import { listarPacientes } from '../../api/endpoints/pacientes'
 import { getResumenPagosTurno, getTurnosProximos } from '../../api/endpoints/turnos'
 import { PageHeader } from '../../components/PageHeader'
 import { ErrorDeCarga, Skeleton } from '../../components/ui/EstadoCarga'
+import { Toast } from '../../components/ui/Toast'
 import {
   ETIQUETA_METODO,
   aFechaISO,
@@ -12,8 +13,9 @@ import {
   formatearMonto,
 } from '../../lib/formato'
 import { cuentaEnCaja } from '../../lib/pagos'
+import { GestionDeTurno } from '../turnos/GestionDeTurno'
 import { AgendaDeHoy } from './AgendaDeHoy'
-import type { MetodoPago, TurnoResponse } from '../../types/api'
+import type { MetodoPago, TurnoResponse, UUID } from '../../types/api'
 
 export function DashboardPage() {
   const hoy = useMemo(() => new Date(), [])
@@ -42,6 +44,12 @@ export function DashboardPage() {
     for (const p of pacientes.data ?? []) mapa.set(p.id, `${p.nombre} ${p.apellido}`)
     return mapa
   }, [pacientes.data])
+
+  const [abierto, setAbierto] = useState<UUID | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  // Looked up by id so the detail shows the refreshed appointment after a change.
+  // A cancelled appointment leaves today's list, so its detail closes on its own.
+  const turnoAbierto = turnosHoy.data?.find((turno) => turno.id === abierto) ?? null
 
   return (
     <>
@@ -90,6 +98,7 @@ export function DashboardPage() {
             error={turnosHoy.error}
             nombrePorPaciente={nombrePorPaciente}
             fechaLarga={formatearFechaLarga(hoy)}
+            onAbrir={setAbierto}
           />
 
           <div className="flex flex-col gap-[18px]">
@@ -102,6 +111,17 @@ export function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <GestionDeTurno
+        turno={turnoAbierto}
+        nombrePaciente={
+          turnoAbierto ? (nombrePorPaciente.get(turnoAbierto.pacienteId) ?? 'Paciente') : ''
+        }
+        onCerrarDetalle={() => setAbierto(null)}
+        onAviso={setAviso}
+      />
+
+      {aviso && <Toast mensaje={aviso} onCerrar={() => setAviso(null)} />}
     </>
   )
 }
@@ -181,12 +201,14 @@ function TurnosDeHoy({
   error,
   nombrePorPaciente,
   fechaLarga,
+  onAbrir,
 }: {
   turnos: TurnoResponse[] | undefined
   cargando: boolean
   error: Error | null
   nombrePorPaciente: Map<string, string>
   fechaLarga: string
+  onAbrir: (turnoId: UUID) => void
 }) {
   return (
     <Panel titulo="Turnos de hoy" extra={fechaLarga}>
@@ -203,7 +225,7 @@ function TurnosDeHoy({
       )}
 
       {turnos && turnos.length > 0 && (
-        <AgendaDeHoy turnos={turnos} nombrePorPaciente={nombrePorPaciente} />
+        <AgendaDeHoy turnos={turnos} nombrePorPaciente={nombrePorPaciente} onAbrir={onAbrir} />
       )}
 
       {turnos && turnos.length === 0 && (

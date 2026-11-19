@@ -47,11 +47,8 @@ import {
   type CalendarDraft,
   type RangoVisible,
 } from '../../lib/calendario'
-import type { EstadoTurno, SesionClinicaResponse, TurnoResponse, UUID } from '../../types/api'
-import { PagoFormModal } from '../pagos/PagoFormModal'
-import { SaldoAFavorModal, type AccionSaldo } from '../pagos/SaldoAFavorModal'
-import { SesionFormModal } from '../sesiones/SesionFormModal'
-import { TurnoDetalleModal } from './TurnoDetalleModal'
+import type { EstadoTurno, TurnoResponse, UUID } from '../../types/api'
+import { GestionDeTurno } from './GestionDeTurno'
 import { TurnoFormModal } from './TurnoFormModal'
 
 type FiltroEstado = EstadoTurno | 'todos'
@@ -77,20 +74,7 @@ export function TurnosPage() {
   const [pagina, setPagina] = useState(0)
   const [creando, setCreando] = useState(false)
   const [creationDraft, setCreationDraft] = useState<CalendarDraft | null>(null)
-  const [editando, setEditando] = useState<TurnoResponse | null>(null)
-  const [saldoDe, setSaldoDe] = useState<{
-    turno: TurnoResponse
-    saldo: number
-    accion: AccionSaldo
-  } | null>(null)
   const [abierto, setAbierto] = useState<UUID | null>(null)
-  const [sesionDe, setSesionDe] = useState<{
-    turnoId: UUID
-    sesion: SesionClinicaResponse | undefined
-  } | null>(null)
-  const [pagoDe, setPagoDe] = useState<{ turnoId: UUID; deuda: number; sinServicios: boolean } | null>(
-    null,
-  )
   const [aviso, setAviso] = useState<string | null>(null)
   // The agenda never opens on a weekend: Saturday/Sunday start on the next Monday.
   const [fechaInicial] = useState(() => diaHabilInicial(dayjs()))
@@ -378,83 +362,12 @@ export function TurnosPage() {
         />
       )}
 
-      {turnoAbierto && (
-        <TurnoDetalleModal
-          turno={turnoAbierto}
-          nombrePaciente={nombreDe(turnoAbierto)}
-          onCerrar={() => setAbierto(null)}
-          onListo={setAviso}
-          onSesion={(sesion) => {
-            setSesionDe({ turnoId: turnoAbierto.id, sesion })
-            setAbierto(null)
-          }}
-          onPago={(deuda, sinServicios) => {
-            setPagoDe({ turnoId: turnoAbierto.id, deuda, sinServicios })
-            setAbierto(null)
-          }}
-          onSaldo={(accion, saldo) => {
-            setSaldoDe({ turno: turnoAbierto, saldo, accion })
-            setAbierto(null)
-          }}
-          onEditar={(turno) => {
-            setEditando(turno)
-            setAbierto(null)
-          }}
-          onEliminado={(mensaje) => {
-            setAbierto(null)
-            setAviso(mensaje)
-          }}
-        />
-      )}
-
-      {editando && (
-        <TurnoFormModal
-          turno={editando}
-          onCerrar={() => setEditando(null)}
-          onListo={(mensaje) => {
-            setEditando(null)
-            setAviso(mensaje)
-          }}
-        />
-      )}
-
-      {pagoDe && (
-        <PagoFormModal
-          turnoId={pagoDe.turnoId}
-          deuda={pagoDe.deuda}
-          sinServicios={pagoDe.sinServicios}
-          onCerrar={() => setPagoDe(null)}
-          onListo={(mensaje) => {
-            setPagoDe(null)
-            setAviso(mensaje)
-          }}
-        />
-      )}
-
-      {saldoDe && (
-        <SaldoAFavorModal
-          turno={saldoDe.turno}
-          saldo={saldoDe.saldo}
-          accion={saldoDe.accion}
-          onCerrar={() => setSaldoDe(null)}
-          onListo={(mensaje) => {
-            setSaldoDe(null)
-            setAviso(mensaje)
-          }}
-        />
-      )}
-
-      {sesionDe && (
-        <SesionFormModal
-          turnoId={sesionDe.turnoId}
-          sesion={sesionDe.sesion}
-          onCerrar={() => setSesionDe(null)}
-          onListo={(mensaje) => {
-            setSesionDe(null)
-            setAviso(mensaje)
-          }}
-        />
-      )}
+      <GestionDeTurno
+        turno={turnoAbierto ?? null}
+        nombrePaciente={turnoAbierto ? nombreDe(turnoAbierto) : ''}
+        onCerrarDetalle={() => setAbierto(null)}
+        onAviso={setAviso}
+      />
 
       {aviso && <Toast mensaje={aviso} onCerrar={() => setAviso(null)} />}
     </>
